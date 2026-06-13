@@ -9,16 +9,23 @@ from .config import CONFIG
 from .group_search import resolve_group_id
 
 
-STUDY_YEAR = CONFIG["study_year"]
-STUDY_YEAR_START = date(STUDY_YEAR, 9, 1)
-
-
 class ScheduleParseError(Exception):
     pass
 
 
-def get_current_study_week(today: date) -> int:
-    delta_days = (today - STUDY_YEAR_START).days
+def get_study_year_start(study_year: int | None = None) -> date:
+    if study_year is None:
+        study_year = CONFIG["study_year"]
+
+    return date(study_year, 9, 1)
+
+
+def get_current_study_week(
+    today: date,
+    study_year: int | None = None
+) -> int:
+    study_year_start = get_study_year_start(study_year)
+    delta_days = (today - study_year_start).days
 
     if delta_days < 0:
         raise ValueError("Текущая дата раньше начала учебного года")
@@ -402,8 +409,9 @@ def parse_schedule(
 
 def main():
     today = date.today()
+    study_year = CONFIG["study_year"]
 
-    week = get_current_study_week(today)
+    week = get_current_study_week(today, study_year)
     group_name = CONFIG["group_name"]
     group_id = resolve_group_id(group_name)
 
@@ -414,7 +422,7 @@ def main():
 
     url = build_schedule_url(
         group_id,
-        STUDY_YEAR,
+        study_year,
         week
     )
 

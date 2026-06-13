@@ -1,4 +1,6 @@
 import json
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 
 from googleapiclient.errors import HttpError
 
@@ -8,7 +10,6 @@ from .calendar_manager import get_or_create_calendar
 from .config import CONFIG, PARSED_SCHEDULE_FILE, SUBJECTS_FILE
 
 
-TIMEZONE = CONFIG["timezone"]
 LESSON_COLORS = {
     "ЛК": "9",
     "ПР": "10",
@@ -43,6 +44,7 @@ def load_lessons() -> list[dict]:
 
 
 def lesson_to_event(lesson: dict) -> dict:
+    timezone = CONFIG["timezone"]
     title = lesson["title"]
 
     if lesson["type"]:
@@ -82,7 +84,7 @@ def lesson_to_event(lesson: dict) -> dict:
                 f'{lesson["date"]}T'
                 f'{lesson["start"]}:00'
             ),
-            "timeZone": TIMEZONE
+            "timeZone": timezone
         },
 
         "end": {
@@ -90,7 +92,7 @@ def lesson_to_event(lesson: dict) -> dict:
                 f'{lesson["date"]}T'
                 f'{lesson["end"]}:00'
             ),
-            "timeZone": TIMEZONE
+            "timeZone": timezone
         },
 
         "extendedProperties": {
@@ -133,18 +135,35 @@ def upsert_calendar_event(
 
 def get_all_tpu_events(
     service,
-    calendar_id: str
+    calendar_id: str,
+    date_range: tuple[str, str] | None = None
 ) -> list[dict]:
 
     events = []
     page_token = None
+    list_kwargs = {}
+
+    if date_range:
+        start_date, end_date = date_range
+        timezone = ZoneInfo(CONFIG["timezone"])
+        list_kwargs["timeMin"] = datetime.combine(
+            date.fromisoformat(start_date),
+            time.min,
+            tzinfo=timezone
+        ).isoformat()
+        list_kwargs["timeMax"] = datetime.combine(
+            date.fromisoformat(end_date),
+            time.max,
+            tzinfo=timezone
+        ).isoformat()
 
     while True:
         result = service.events().list(
             calendarId=calendar_id,
             privateExtendedProperty="source=tpu_schedule_sync",
             maxResults=2500,
-            pageToken=page_token
+            pageToken=page_token,
+            **list_kwargs
         ).execute()
 
         events.extend(
@@ -163,6 +182,7 @@ def delete_removed_events(
     service,
     calendar_id: str,
     current_lesson_ids: set[str],
+    date_range: tuple[str, str] | None = None,
     status_callback: StatusCallback | None = None
 ) -> int:
 
@@ -170,7 +190,8 @@ def delete_removed_events(
 
     events = get_all_tpu_events(
         service,
-        calendar_id
+        calendar_id,
+        date_range=date_range
     )
 
     for event in events:
@@ -212,6 +233,15 @@ def sync_calendar(
 
     current_lesson_ids = set(
         unique_lessons.keys()
+    )
+    lesson_dates = [
+        lesson["date"]
+        for lesson in all_lessons
+    ]
+    date_range = (
+        (min(lesson_dates), max(lesson_dates))
+        if lesson_dates
+        else None
     )
 
     emit(
@@ -264,12 +294,21 @@ def sync_calendar(
 
             updated_count += 1
 
-    deleted_count = delete_removed_events(
-        service,
-        calendar_id,
-        current_lesson_ids,
-        status_callback=status_callback
-    )
+    if date_range:
+        deleted_count = delete_removed_events(
+            service,
+            calendar_id,
+            current_lesson_ids,
+            date_range=date_range,
+            status_callback=status_callback
+        )
+
+    else:
+        emit(
+            "Удаление пропущено: в JSON нет дат занятий",
+            status_callback
+        )
+        deleted_count = 0
 
     emit(
         "Синхронизация завершена: "

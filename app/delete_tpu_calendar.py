@@ -3,12 +3,11 @@ from .calendar_api import get_calendar_service
 from .config import CONFIG
 
 
-CALENDAR_NAME = CONFIG["calendar_name"]
-
-
 def delete_calendar(
     status_callback: StatusCallback | None = None
 ) -> bool:
+    calendar_name = CONFIG["calendar_name"]
+
     service = get_calendar_service(status_callback=status_callback)
 
     calendars = (
@@ -21,7 +20,7 @@ def delete_calendar(
     found = False
 
     for calendar in calendars.get("items", []):
-        if calendar["summary"] == CALENDAR_NAME:
+        if calendar["summary"] == calendar_name:
             calendar_id = calendar["id"]
 
             (
@@ -32,14 +31,14 @@ def delete_calendar(
             )
 
             emit(
-                f"Календарь удалён: {CALENDAR_NAME}",
+                f"Календарь удалён: {calendar_name}",
                 status_callback
             )
 
             return True
 
     emit(
-        f"Календарь не найден: {CALENDAR_NAME}",
+        f"Календарь не найден: {calendar_name}",
         status_callback
     )
 

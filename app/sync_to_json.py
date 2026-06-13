@@ -80,7 +80,8 @@ def update_schedule(
     emit(f"Группа найдена, id: {group_id}", status_callback)
 
     current_week = get_current_study_week(
-        datetime.today().date()
+        datetime.today().date(),
+        study_year
     )
 
     all_lessons = []

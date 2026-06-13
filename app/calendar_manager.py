@@ -3,14 +3,13 @@ from .calendar_api import get_calendar_service
 from .config import CONFIG
 
 
-CALENDAR_NAME = CONFIG["calendar_name"]
-TIMEZONE = CONFIG["timezone"]
-
-
 def get_or_create_calendar(
     service=None,
     status_callback: StatusCallback | None = None
 ) -> str:
+    calendar_name = CONFIG["calendar_name"]
+    timezone = CONFIG["timezone"]
+
     if service is None:
         service = get_calendar_service(
             status_callback=status_callback
@@ -19,16 +18,16 @@ def get_or_create_calendar(
     calendars = service.calendarList().list().execute()
 
     for calendar in calendars.get("items", []):
-        if calendar["summary"] == CALENDAR_NAME:
+        if calendar["summary"] == calendar_name:
             emit(
-                f"Найден календарь: {CALENDAR_NAME}",
+                f"Найден календарь: {calendar_name}",
                 status_callback
             )
             return calendar["id"]
 
     new_calendar = {
-        "summary": CALENDAR_NAME,
-        "timeZone": TIMEZONE
+        "summary": calendar_name,
+        "timeZone": timezone
     }
 
     created_calendar = service.calendars().insert(
@@ -36,7 +35,7 @@ def get_or_create_calendar(
     ).execute()
 
     emit(
-        f"Создан календарь: {CALENDAR_NAME}",
+        f"Создан календарь: {calendar_name}",
         status_callback
     )
 
