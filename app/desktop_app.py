@@ -4,10 +4,11 @@ from collections.abc import Callable
 
 try:
     import customtkinter as ctk
+    from PIL import Image
 
 except ImportError as error:
     raise SystemExit(
-        "Не установлен customtkinter. Выполните: "
+        "Не установлены зависимости GUI. Выполните: "
         ".\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt"
     ) from error
 
@@ -19,7 +20,7 @@ from .app_actions import (
     sync_calendar,
     update_schedule
 )
-from .config import CONFIG
+from .config import AVATAR_FILE, CONFIG
 from .manage_subjects import set_all_subjects_enabled
 
 
@@ -58,12 +59,27 @@ class DesktopApp(ctk.CTk):
         self._build_content()
 
     def _build_sidebar(self) -> None:
+        if AVATAR_FILE.exists():
+            avatar = ctk.CTkImage(
+                light_image=Image.open(AVATAR_FILE),
+                dark_image=Image.open(AVATAR_FILE),
+                size=(92, 92)
+            )
+
+            avatar_label = ctk.CTkLabel(
+                self.sidebar,
+                text="",
+                image=avatar
+            )
+            avatar_label.grid(row=0, column=0, padx=18, pady=(22, 8), sticky="ew")
+            self.avatar_image = avatar
+
         title = ctk.CTkLabel(
             self.sidebar,
             text="TPU Calendar Sync",
             font=ctk.CTkFont(size=20, weight="bold")
         )
-        title.grid(row=0, column=0, padx=18, pady=(22, 8), sticky="ew")
+        title.grid(row=1, column=0, padx=18, pady=(0, 8), sticky="ew")
 
         group_text = (
             f"Группа: {CONFIG['group_name']}\n"
@@ -76,10 +92,10 @@ class DesktopApp(ctk.CTk):
             text=group_text,
             justify="left"
         )
-        group_label.grid(row=1, column=0, padx=18, pady=(0, 18), sticky="w")
+        group_label.grid(row=2, column=0, padx=18, pady=(0, 18), sticky="w")
 
         self._add_action_button(
-            row=2,
+            row=3,
             text="Обновить расписание",
             command=lambda: self.run_action(
                 "Обновление расписания",
@@ -88,7 +104,7 @@ class DesktopApp(ctk.CTk):
         )
 
         self._add_action_button(
-            row=3,
+            row=4,
             text="Синхронизировать календарь",
             command=lambda: self.run_action(
                 "Синхронизация календаря",
@@ -97,7 +113,7 @@ class DesktopApp(ctk.CTk):
         )
 
         self._add_action_button(
-            row=4,
+            row=5,
             text="Полная синхронизация",
             command=lambda: self.run_action(
                 "Полная синхронизация",
@@ -106,7 +122,7 @@ class DesktopApp(ctk.CTk):
         )
 
         self._add_action_button(
-            row=5,
+            row=6,
             text="Удалить календарь TPU",
             command=self.confirm_delete_calendar,
             color="#8f2d2d",
@@ -118,14 +134,14 @@ class DesktopApp(ctk.CTk):
             text="Очистить лог",
             command=self.clear_log
         )
-        clear_button.grid(row=7, column=0, padx=18, pady=(18, 8), sticky="ew")
+        clear_button.grid(row=8, column=0, padx=18, pady=(18, 8), sticky="ew")
 
         exit_button = ctk.CTkButton(
             self.sidebar,
             text="Закрыть",
             command=self.destroy
         )
-        exit_button.grid(row=9, column=0, padx=18, pady=18, sticky="ew")
+        exit_button.grid(row=10, column=0, padx=18, pady=18, sticky="ew")
 
     def _add_action_button(
         self,

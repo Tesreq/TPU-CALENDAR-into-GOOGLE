@@ -10,6 +10,8 @@ SUBJECTS_FILE = BASE_DIR / "subjects.json"
 CREDENTIALS_FILE = BASE_DIR / "credentials.json"
 TOKEN_FILE = BASE_DIR / "token.json"
 LOGS_DIR = BASE_DIR.parent / "logs"
+ASSETS_DIR = BASE_DIR / "assets"
+AVATAR_FILE = ASSETS_DIR / "avatar.png"
 
 
 with open(

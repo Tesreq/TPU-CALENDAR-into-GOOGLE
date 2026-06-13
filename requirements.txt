@@ -2,6 +2,7 @@ playwright==1.56.0
 beautifulsoup4
 requests
 customtkinter
+Pillow
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
