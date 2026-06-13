@@ -2,10 +2,10 @@ import hashlib
 import json
 from datetime import datetime
 
-from app_logging import StatusCallback, emit
-from config import CONFIG, PARSED_SCHEDULE_FILE, SUBJECTS_FILE
-from group_search import resolve_group_id
-from parser import (
+from .app_logging import StatusCallback, emit
+from .config import CONFIG, PARSED_SCHEDULE_FILE, SUBJECTS_FILE
+from .group_search import resolve_group_id
+from .parser import (
     get_current_study_week,
     build_schedule_url,
     fetch_rendered_html_many,

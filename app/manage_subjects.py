@@ -1,6 +1,6 @@
 import json
 
-from config import SUBJECTS_FILE
+from .config import SUBJECTS_FILE
 
 
 def load_subjects() -> list[dict]:

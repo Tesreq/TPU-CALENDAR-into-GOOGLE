@@ -2,10 +2,10 @@ import json
 
 from googleapiclient.errors import HttpError
 
-from app_logging import StatusCallback, emit
-from calendar_api import get_calendar_service
-from calendar_manager import get_or_create_calendar
-from config import CONFIG, PARSED_SCHEDULE_FILE, SUBJECTS_FILE
+from .app_logging import StatusCallback, emit
+from .calendar_api import get_calendar_service
+from .calendar_manager import get_or_create_calendar
+from .config import CONFIG, PARSED_SCHEDULE_FILE, SUBJECTS_FILE
 
 
 TIMEZONE = CONFIG["timezone"]

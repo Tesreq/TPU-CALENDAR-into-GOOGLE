@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Callable
 
-from config import LOGS_DIR
+from .config import LOGS_DIR
 
 
 StatusCallback = Callable[[str], None]

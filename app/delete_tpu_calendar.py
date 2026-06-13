@@ -1,6 +1,6 @@
-from app_logging import StatusCallback, emit
-from calendar_api import get_calendar_service
-from config import CONFIG
+from .app_logging import StatusCallback, emit
+from .calendar_api import get_calendar_service
+from .config import CONFIG
 
 
 CALENDAR_NAME = CONFIG["calendar_name"]

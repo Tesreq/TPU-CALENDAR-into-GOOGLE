@@ -1,10 +1,20 @@
-from app_actions import (
+if __package__ in (None, ""):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(
+        0,
+        str(Path(__file__).resolve().parent.parent)
+    )
+    __package__ = "app"
+
+from .app_actions import (
     delete_calendar,
     full_sync,
     sync_calendar,
     update_schedule
 )
-from manage_subjects import main as manage_subjects_menu
+from .manage_subjects import main as manage_subjects_menu
 
 
 def show_menu():

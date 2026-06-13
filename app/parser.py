@@ -4,9 +4,9 @@ from urllib.parse import urlparse, parse_qs
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
-from app_logging import StatusCallback, emit
-from config import CONFIG
-from group_search import resolve_group_id
+from .app_logging import StatusCallback, emit
+from .config import CONFIG
+from .group_search import resolve_group_id
 
 
 STUDY_YEAR = CONFIG["study_year"]

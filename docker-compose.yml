@@ -4,5 +4,4 @@ services:
     container_name: uni_calendar_sync
 
     volumes:
-      - ./app:/app
-
+      - ./app:/project/app

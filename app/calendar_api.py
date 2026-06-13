@@ -6,8 +6,8 @@ from googleapiclient.discovery import build
 
 import os.path
 
-from app_logging import StatusCallback, emit
-from config import CREDENTIALS_FILE, TOKEN_FILE
+from .app_logging import StatusCallback, emit
+from .config import CREDENTIALS_FILE, TOKEN_FILE
 
 
 SCOPES = [

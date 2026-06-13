@@ -3,7 +3,7 @@ import time
 
 import requests
 
-from app_logging import StatusCallback, emit
+from .app_logging import StatusCallback, emit
 
 
 BASE_URL = "https://ro-rasp.tpu.ru"

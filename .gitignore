@@ -8,3 +8,6 @@ app/token.json
 app/parsed_schedule.json
 app/subjects.json
 logs/
+build/
+dist/
+*.spec
