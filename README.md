@@ -1,4 +1,4 @@
-﻿# TPU Calendar Sync
+# TPU Calendar Sync
 
 Desktop-приложение для синхронизации расписания группы ТПУ с Google Calendar.
 
@@ -153,9 +153,14 @@ data/config.json
 data/config.json
 ```
 
+## Тесты
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s . -p "*test*.py"
+```
+
 ## Примечания
 
 - `data/`, `credentials.json`, `token.json`, `parsed_schedule.json`, `subjects.json`, `logs/`, `build/`, `dist/` не коммитятся.
 - Парсер зависит от HTML-разметки сайта ТПУ. Если сайт изменится, приложение покажет ошибку `ScheduleParseError`.
-- Для полноценного релиза стоит добавить тесты парсера на сохранённых HTML-примерах.
-
+- Парсер и ключевые сценарии синхронизации покрыты `unittest`; HTML-примеры лежат в `tests/fixtures/`.

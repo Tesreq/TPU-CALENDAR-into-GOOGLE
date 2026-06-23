@@ -37,10 +37,35 @@ def load_enabled_subjects() -> set[str]:
     }
 
 
-def load_lessons() -> list[dict]:
-    schedule = load_json(PARSED_SCHEDULE_FILE)
+def load_schedule() -> dict:
+    return load_json(PARSED_SCHEDULE_FILE)
 
-    return schedule["lessons"]
+
+def load_lessons() -> list[dict]:
+    return load_schedule()["lessons"]
+
+
+def get_calendar_cleanup_date_range(
+    schedule: dict,
+    lessons: list[dict]
+) -> tuple[str, str] | None:
+    sync_range = schedule.get("sync_range", {})
+    start_date = sync_range.get("start")
+    end_date = sync_range.get("end")
+
+    if start_date and end_date:
+        return start_date, end_date
+
+    lesson_dates = [
+        lesson["date"]
+        for lesson in lessons
+    ]
+
+    return (
+        (min(lesson_dates), max(lesson_dates))
+        if lesson_dates
+        else None
+    )
 
 
 def lesson_to_event(lesson: dict) -> dict:
@@ -217,7 +242,8 @@ def delete_removed_events(
 def sync_calendar(
     status_callback: StatusCallback | None = None
 ) -> dict:
-    all_lessons = load_lessons()
+    schedule = load_schedule()
+    all_lessons = schedule["lessons"]
     enabled_subjects = load_enabled_subjects()
 
     filtered_lessons = [
@@ -234,14 +260,9 @@ def sync_calendar(
     current_lesson_ids = set(
         unique_lessons.keys()
     )
-    lesson_dates = [
-        lesson["date"]
-        for lesson in all_lessons
-    ]
-    date_range = (
-        (min(lesson_dates), max(lesson_dates))
-        if lesson_dates
-        else None
+    date_range = get_calendar_cleanup_date_range(
+        schedule,
+        all_lessons
     )
 
     emit(

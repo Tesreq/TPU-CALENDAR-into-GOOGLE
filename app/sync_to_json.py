@@ -1,6 +1,6 @@
 ﻿import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .app_logging import StatusCallback, emit
 from .config import CONFIG, PARSED_SCHEDULE_FILE, SUBJECTS_FILE
@@ -8,24 +8,72 @@ from .group_search import normalize_group_name, resolve_group_id
 from .parser import (
     get_current_study_week,
     get_current_study_year,
+    get_study_year_start,
     build_schedule_url,
     fetch_rendered_html_many,
     parse_schedule
 )
 
 
-def make_lesson_id(lesson: dict) -> str:
-    raw = "|".join([
-        lesson["date"],
-        lesson["start"],
-        lesson["end"],
-        lesson["title"],
-        lesson["type"],
-    ])
+LESSON_ID_PREFIX = "tpu2"
+LESSON_ID_HASH_LENGTH = 40
+LESSON_ID_FIELDS = (
+    "date",
+    "start",
+    "end",
+    "title",
+    "type",
+    "teacher",
+    "location"
+)
 
-    return "tpu" + hashlib.sha256(
+
+def normalize_lesson_id_value(value) -> str:
+    return " ".join(
+        str(value or "")
+        .split()
+    ).casefold()
+
+
+def make_lesson_id(
+    lesson: dict,
+    group_name: str = "",
+    study_year: int | None = None
+) -> str:
+    identity = {
+        "version": 2,
+        "group_name": normalize_lesson_id_value(group_name),
+        "study_year": str(study_year or ""),
+        "lesson": {
+            field: normalize_lesson_id_value(lesson.get(field, ""))
+            for field in LESSON_ID_FIELDS
+        }
+    }
+    raw = json.dumps(
+        identity,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":")
+    )
+
+    return LESSON_ID_PREFIX + hashlib.sha256(
         raw.encode("utf-8")
-    ).hexdigest()[:40]
+    ).hexdigest()[:LESSON_ID_HASH_LENGTH]
+
+
+def get_schedule_date_range(
+    study_year: int,
+    start_week: int,
+    weeks_count: int
+) -> tuple[str, str]:
+    start_date = get_study_year_start(study_year) + timedelta(
+        days=(start_week - 1) * 7
+    )
+    end_date = start_date + timedelta(
+        days=(weeks_count * 7) - 1
+    )
+
+    return start_date.isoformat(), end_date.isoformat()
 
 
 def load_existing_subjects() -> dict:
@@ -91,6 +139,12 @@ def update_schedule(
         study_year
     )
 
+    sync_start_date, sync_end_date = get_schedule_date_range(
+        study_year,
+        current_week,
+        weeks_ahead
+    )
+
     all_lessons = []
 
     week_urls = {}
@@ -127,7 +181,11 @@ def update_schedule(
         )
 
         for lesson in lessons:
-            lesson["id"] = make_lesson_id(lesson)
+            lesson["id"] = make_lesson_id(
+                lesson,
+                group_name=group_name,
+                study_year=study_year
+            )
             lesson["week"] = week
 
             all_lessons.append(lesson)
@@ -146,6 +204,10 @@ def update_schedule(
         "group_name": group_name,
         "group_id": group_id,
         "study_year": study_year,
+        "sync_range": {
+            "start": sync_start_date,
+            "end": sync_end_date
+        },
         "updated_at": datetime.now().isoformat(
             timespec="seconds"
         ),
@@ -237,4 +299,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

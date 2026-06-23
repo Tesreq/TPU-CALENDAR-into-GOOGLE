@@ -57,6 +57,24 @@ class ParseScheduleTests(unittest.TestCase):
         self.assertEqual(lessons[0]["location"], "к. 2 15")
         self.assertEqual(lessons[1]["teacher"], "Сидорова А.А.")
 
+    def test_parse_nested_time_and_auditorium_location(self) -> None:
+        lessons = parse_schedule(load_fixture("weird_markup.html"))
+
+        self.assertEqual(
+            lessons,
+            [
+                {
+                    "date": "2025-09-04",
+                    "start": "08:30",
+                    "end": "10:05",
+                    "title": "Информатика",
+                    "type": "ПР",
+                    "teacher": "Смирнов С.С.",
+                    "location": "ауд. 301"
+                }
+            ]
+        )
+
     def test_missing_schedule_table_raises_parse_error(self) -> None:
         with self.assertRaises(ScheduleParseError):
             parse_schedule(load_fixture("missing_table.html"))

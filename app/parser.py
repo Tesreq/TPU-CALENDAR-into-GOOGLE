@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime
 from urllib.parse import urlparse, parse_qs
 
@@ -168,33 +169,26 @@ def extract_date_from_cell(cell) -> str | None:
 def extract_time(row) -> tuple[str, str]:
     time_cell = row.select_one("td")
 
-    if time_cell is None or not time_cell.contents:
+    if time_cell is None:
         raise ScheduleParseError(
             "В строке расписания не найдена ячейка времени."
         )
 
-    end_time_cell = time_cell.select_one(".text-muted")
-
-    if end_time_cell is None:
-        raise ScheduleParseError(
-            "В строке расписания не найдено время окончания занятия."
-        )
-
-    start_time = (
-        time_cell.contents[0]
-        .strip()
+    time_text = time_cell.get_text(
+        " ",
+        strip=True
+    )
+    times = re.findall(
+        r"\b\d{1,2}:\d{2}\b",
+        time_text
     )
 
-    if not start_time:
+    if len(times) < 2:
         raise ScheduleParseError(
-            "В строке расписания пустое время начала занятия."
+            "В строке расписания не найдено время начала или окончания занятия."
         )
 
-    end_time = (
-        end_time_cell.get_text(strip=True)
-    )
-
-    return start_time, end_time
+    return times[0], times[1]
 
 
 def split_cell_into_lesson_blocks(cell):
@@ -232,6 +226,30 @@ def split_cell_into_lesson_blocks(cell):
     return result
 
 
+def clean_lesson_type(value: str) -> str:
+    return re.sub(
+        r"^[()\[\],.;]+|[()\[\],.;]+$",
+        "",
+        value
+    ).strip()
+
+
+def split_teacher_and_location(rest_text: str) -> tuple[str, str]:
+    match = re.search(
+        r"(?P<teacher>.*?)(?P<location>(?:к\.|ауд\.)\s*.+)$",
+        rest_text,
+        flags=re.IGNORECASE
+    )
+
+    if not match:
+        return rest_text.strip(), ""
+
+    return (
+        match.group("teacher").strip(),
+        match.group("location").strip()
+    )
+
+
 def parse_lesson_block(block) -> dict | None:
     subject_span = block.select_one("span[title]")
 
@@ -265,12 +283,7 @@ def parse_lesson_block(block) -> dict | None:
     type_index = None
 
     for i, part in enumerate(parts):
-        clean_part = (
-            part
-            .replace("(", "")
-            .replace(")", "")
-            .strip()
-        )
+        clean_part = clean_lesson_type(part)
 
         if clean_part in type_markers:
             lesson_type = clean_part
@@ -300,21 +313,7 @@ def parse_lesson_block(block) -> dict | None:
 
     rest_text = " ".join(rest)
 
-    location = ""
-    teacher = rest_text
-
-    if "к." in rest_text:
-        teacher_part, location_part = rest_text.split(
-            "к.",
-            1
-        )
-
-        teacher = teacher_part.strip()
-
-        location = (
-            "к. " +
-            location_part.strip()
-        )
+    teacher, location = split_teacher_and_location(rest_text)
 
     if not title and teacher and not location:
         title = teacher

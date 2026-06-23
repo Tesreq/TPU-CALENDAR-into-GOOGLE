@@ -1,6 +1,7 @@
-﻿{
+{
   "group_name": "",
   "timezone": "Asia/Tomsk",
   "weeks_ahead": 8,
-  "calendar_name": "TPU Schedule"
+  "calendar_name": "TPU Schedule",
+  "calendar_id": ""
 }

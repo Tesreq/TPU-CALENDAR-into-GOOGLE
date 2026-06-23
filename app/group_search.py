@@ -14,11 +14,88 @@ HEADERS = {
     )
 }
 
+GROUP_NAME_FIELDS = (
+    "name",
+    "title",
+    "text",
+    "label",
+    "value"
+)
+
 
 def normalize_group_name(group_name: str) -> str:
     normalized = group_name.strip().upper()
 
     return normalized.replace("I", "И")
+
+
+def clean_result_text(value: str) -> str:
+    return re.sub(
+        r"<[^>]+>",
+        " ",
+        value
+    )
+
+
+def result_texts(result: dict) -> list[str]:
+    texts = []
+
+    for field in GROUP_NAME_FIELDS:
+        value = result.get(field)
+
+        if isinstance(value, str) and value.strip():
+            texts.append(clean_result_text(value))
+
+    return texts
+
+
+def result_matches_group(result: dict, group_name: str) -> bool:
+    target = normalize_group_name(group_name)
+
+    for text in result_texts(result):
+        normalized = normalize_group_name(text)
+
+        if normalized == target:
+            return True
+
+        tokens = [
+            token
+            for token in re.split(r"[\s,;()\[\]{}]+", normalized)
+            if token
+        ]
+
+        if target in tokens:
+            return True
+
+    return False
+
+
+def select_group_result(
+    results: list[dict],
+    group_name: str,
+    status_callback: StatusCallback | None = None
+) -> dict | None:
+    matches = [
+        result
+        for result in results
+        if result_matches_group(result, group_name)
+    ]
+
+    if not matches:
+        emit(
+            f"Точного совпадения для группы {group_name} не найдено.",
+            status_callback
+        )
+        return None
+
+    if len(matches) > 1:
+        emit(
+            f"Найдено несколько точных совпадений для группы {group_name}. "
+            "Использую первое.",
+            status_callback
+        )
+
+    return matches[0]
 
 
 def make_request(
@@ -82,7 +159,11 @@ def search_group(
     if not results:
         return None
 
-    return results[0]
+    return select_group_result(
+        results,
+        group_name,
+        status_callback=status_callback
+    )
 
 
 def resolve_group_id(

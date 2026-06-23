@@ -1522,10 +1522,12 @@ class DesktopApp(ctk.CTk):
             )
             return
 
+        calendar_changed = calendar_name != CONFIG.get("calendar_name", "")
         new_config = {
             **CONFIG,
             "weeks_ahead": weeks_ahead,
-            "calendar_name": calendar_name
+            "calendar_name": calendar_name,
+            "calendar_id": "" if calendar_changed else CONFIG.get("calendar_id", "")
         }
         save_config(new_config)
         self.refresh_sidebar_info()
@@ -1553,4 +1555,3 @@ class DesktopApp(ctk.CTk):
 def main() -> None:
     app = DesktopApp()
     app.mainloop()
-

@@ -4,8 +4,6 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-import os.path
-
 from .app_logging import StatusCallback, emit
 from .config import CREDENTIALS_FILE, TOKEN_FILE
 
@@ -15,16 +13,46 @@ SCOPES = [
 ]
 
 
-def get_calendar_service(
+def load_saved_credentials(
     status_callback: StatusCallback | None = None
 ):
-    creds = None
+    if not TOKEN_FILE.exists():
+        return None
 
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(
+    try:
+        return Credentials.from_authorized_user_file(
             TOKEN_FILE,
             SCOPES
         )
+
+    except (OSError, ValueError) as error:
+        emit(
+            "Google token.json повреждён или не подходит. "
+            "Нужна повторная авторизация.",
+            status_callback
+        )
+        TOKEN_FILE.unlink(missing_ok=True)
+        return None
+
+
+def save_credentials(creds) -> None:
+    TOKEN_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    with open(
+        TOKEN_FILE,
+        "w",
+        encoding="utf-8"
+    ) as token:
+        token.write(creds.to_json())
+
+
+def get_calendar_service(
+    status_callback: StatusCallback | None = None
+):
+    creds = load_saved_credentials(status_callback=status_callback)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -54,8 +82,7 @@ def get_calendar_service(
 
             creds = flow.run_local_server(port=0)
 
-        with open(TOKEN_FILE, "w") as token:
-            token.write(creds.to_json())
+        save_credentials(creds)
 
         emit("Google token.json сохранён", status_callback)
 
