@@ -1,5 +1,6 @@
 ﻿import threading
 import traceback
+from tkinter import filedialog
 from collections.abc import Callable
 from datetime import date
 
@@ -16,6 +17,7 @@ except ImportError as error:
 from .app_actions import (
     delete_calendar,
     full_sync,
+    import_google_credentials,
     login_google_account,
     load_subjects,
     logout_google_account,
@@ -577,8 +579,7 @@ class DesktopApp(ctk.CTk):
 
         actions = ctk.CTkFrame(self.first_run_panel, fg_color="transparent")
         actions.grid(row=2, column=0, padx=18, pady=(0, 16), sticky="ew")
-        actions.grid_columnconfigure(2, weight=1)
-
+        actions.grid_columnconfigure(3, weight=1)
         settings_button = self._make_button(
             actions,
             text="Открыть настройки",
@@ -599,6 +600,15 @@ class DesktopApp(ctk.CTk):
         )
         google_button.grid(row=0, column=1, padx=(0, 8), sticky="w")
         self.buttons.append(google_button)
+
+        credentials_button = self._make_button(
+            actions,
+            text="Выбрать credentials.json",
+            command=self.choose_google_credentials,
+            outline=True
+        )
+        credentials_button.grid(row=0, column=2, padx=(0, 8), sticky="w")
+        self.buttons.append(credentials_button)
 
     def _build_subjects_tab(self) -> None:
         self.subjects_tab.grid_columnconfigure(0, weight=1)
@@ -732,8 +742,17 @@ class DesktopApp(ctk.CTk):
             command=self.run_google_auth_action,
             outline=True
         )
-        self.google_auth_button.grid(row=2, column=0, padx=(20, 8), pady=(6, 20), sticky="ew")
+        self.google_auth_button.grid(row=2, column=0, padx=(20, 8), pady=6, sticky="ew")
         self.buttons.append(self.google_auth_button)
+
+        credentials_button = self._make_button(
+            card,
+            text="Выбрать credentials.json",
+            command=self.choose_google_credentials,
+            outline=True
+        )
+        credentials_button.grid(row=2, column=1, padx=(8, 20), pady=6, sticky="ew")
+        self.buttons.append(credentials_button)
 
         delete_button = self._make_button(
             card,
@@ -741,7 +760,7 @@ class DesktopApp(ctk.CTk):
             command=self.confirm_delete_calendar,
             danger=True
         )
-        delete_button.grid(row=2, column=1, padx=(8, 20), pady=(6, 20), sticky="ew")
+        delete_button.grid(row=3, column=0, columnspan=2, padx=20, pady=(6, 20), sticky="ew")
         self.buttons.append(delete_button)
 
     def _build_settings_tab(self) -> None:
@@ -982,6 +1001,35 @@ class DesktopApp(ctk.CTk):
             self.google_auth_button
         )
 
+    def choose_google_credentials(self) -> None:
+        file_path = filedialog.askopenfilename(
+            parent=self,
+            title="Выберите Google credentials.json",
+            filetypes=(
+                ("JSON files", "*.json"),
+                ("All files", "*.*")
+            )
+        )
+
+        if not file_path:
+            return
+
+        try:
+            result = import_google_credentials(file_path, self.write_log)
+
+        except Exception as error:
+            message = self.format_error_reason(
+                f"{type(error).__name__}: {error}"
+            )
+            self.status_label.configure(text=message)
+            self.write_log(f"credentials.json: ошибка - {message}")
+            self.refresh_status_panel()
+            return
+
+        self.write_summary(result)
+        self.refresh_status_panel()
+        self.status_label.configure(text="credentials.json сохранён")
+
     def run_google_auth_action(self) -> None:
         if TOKEN_FILE.exists():
             self.run_action(
@@ -989,6 +1037,12 @@ class DesktopApp(ctk.CTk):
                 logout_google_account
             )
             return
+
+        if not CREDENTIALS_FILE.exists():
+            self.choose_google_credentials()
+
+            if not CREDENTIALS_FILE.exists():
+                return
 
         self.run_action(
             "Вход в Google",
@@ -1224,6 +1278,16 @@ class DesktopApp(ctk.CTk):
         return error_line
 
     def write_summary(self, result: dict) -> None:
+        if "credentials_imported" in result:
+            self.write_log("Итог: credentials.json готов к использованию")
+
+            if result.get("token_removed"):
+                self.write_log(
+                    "Итог: старый вход Google сброшен, войдите заново"
+                )
+
+            return
+
         if "group_verified" in result:
             if result["group_verified"]:
                 self.write_log(

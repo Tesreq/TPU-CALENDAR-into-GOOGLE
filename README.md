@@ -48,7 +48,7 @@ cd path\to\TPU-Calendar-Sync
 
 ## Google Calendar
 
-В папку `app` положите OAuth-файл:
+В desktop-приложении откройте вкладку `Дополнительно` и нажмите `Выбрать credentials.json`. Приложение скопирует OAuth-файл в:
 
 ```text
 data/credentials.json
@@ -127,7 +127,7 @@ dist/
     sync.log
 ```
 
-Если запускаете exe впервые, положите `credentials.json` в:
+Если запускаете exe впервые, выберите `credentials.json` во вкладке `Дополнительно`. Файл будет сохранён в:
 
 ```text
 dist/data/credentials.json
