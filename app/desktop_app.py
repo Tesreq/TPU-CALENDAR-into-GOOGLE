@@ -64,7 +64,6 @@ class DesktopApp(ctk.CTk):
         self.buttons: list[ctk.CTkButton] = []
         self.subjects: list[dict] = []
         self.subject_vars: dict[str, ctk.BooleanVar] = {}
-        self.settings_widgets: dict[str, ctk.CTkEntry | ctk.CTkOptionMenu] = {}
 
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
@@ -500,14 +499,14 @@ class DesktopApp(ctk.CTk):
         summary.grid(row=0, column=0, sticky="ew", pady=(4, 12))
         summary.grid_columnconfigure(1, weight=1)
 
-        self.ready_title = ctk.CTkLabel(
+        ready_title = ctk.CTkLabel(
             summary,
             text="Журнал",
             text_color=TEXT,
             font=ctk.CTkFont(size=16, weight="bold"),
             anchor="w"
         )
-        self.ready_title.grid(row=0, column=0, sticky="w")
+        ready_title.grid(row=0, column=0, sticky="w")
 
         ready_subtitle = ctk.CTkLabel(
             summary,
@@ -717,7 +716,7 @@ class DesktopApp(ctk.CTk):
             value=str(CONFIG["group_name"])
         )
 
-        self.study_year_value = self._add_setting_value(
+        self._add_setting_value(
             card,
             row=2,
             title="Учебный год",

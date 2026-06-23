@@ -17,8 +17,6 @@ def delete_calendar(
         .execute()
     )
 
-    found = False
-
     for calendar in calendars.get("items", []):
         if calendar["summary"] == calendar_name:
             calendar_id = calendar["id"]
