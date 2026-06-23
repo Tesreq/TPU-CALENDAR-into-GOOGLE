@@ -15,6 +15,12 @@ HEADERS = {
 }
 
 
+def normalize_group_name(group_name: str) -> str:
+    normalized = group_name.strip().upper()
+
+    return normalized.replace("I", "И")
+
+
 def make_request(
     url: str,
     status_callback: StatusCallback | None = None,
@@ -54,6 +60,7 @@ def search_group(
     group_name: str,
     status_callback: StatusCallback | None = None
 ) -> dict | None:
+    group_name = normalize_group_name(group_name)
 
     response = make_request(
         f"{BASE_URL}/select/search/main.html",
@@ -82,6 +89,7 @@ def resolve_group_id(
     group_name: str,
     status_callback: StatusCallback | None = None
 ) -> str | None:
+    group_name = normalize_group_name(group_name)
 
     group = search_group(
         group_name,

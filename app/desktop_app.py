@@ -26,10 +26,12 @@ from .app_actions import (
 from .config import (
     AVATAR_FILE,
     CONFIG,
+    CREDENTIALS_FILE,
     TOKEN_FILE,
     save_config
 )
 from .environment_check import check_environment
+from .group_search import normalize_group_name, resolve_group_id
 from .manage_subjects import set_all_subjects_enabled
 from .parser import get_current_study_week, get_current_study_year
 
@@ -489,14 +491,16 @@ class DesktopApp(ctk.CTk):
 
     def _build_log_tab(self) -> None:
         self.log_tab.grid_columnconfigure(0, weight=1)
-        self.log_tab.grid_rowconfigure(1, weight=1)
+        self.log_tab.grid_rowconfigure(2, weight=1)
+
+        self._build_first_run_panel()
 
         summary = ctk.CTkFrame(
             self.log_tab,
             fg_color="transparent",
             corner_radius=0
         )
-        summary.grid(row=0, column=0, sticky="ew", pady=(4, 12))
+        summary.grid(row=1, column=0, sticky="ew", pady=(4, 12))
         summary.grid_columnconfigure(1, weight=1)
 
         ready_title = ctk.CTkLabel(
@@ -537,9 +541,63 @@ class DesktopApp(ctk.CTk):
             text_color=TEXT,
             font=ctk.CTkFont(family="Consolas", size=13)
         )
-        self.log_box.grid(row=1, column=0, sticky="nsew")
+        self.log_box.grid(row=2, column=0, sticky="nsew")
         self.log_box.insert("end", "Приложение запущено.\n")
         self.log_box.configure(state="disabled")
+
+    def _build_first_run_panel(self) -> None:
+        self.first_run_panel = ctk.CTkFrame(
+            self.log_tab,
+            fg_color=SURFACE,
+            border_width=1,
+            border_color=BORDER,
+            corner_radius=8
+        )
+        self.first_run_panel.grid(row=0, column=0, sticky="ew", pady=(8, 14))
+        self.first_run_panel.grid_columnconfigure(0, weight=1)
+
+        title = ctk.CTkLabel(
+            self.first_run_panel,
+            text="Первый запуск",
+            text_color=TEXT,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            anchor="w"
+        )
+        title.grid(row=0, column=0, padx=18, pady=(16, 4), sticky="ew")
+
+        self.first_run_status = ctk.CTkLabel(
+            self.first_run_panel,
+            text="",
+            text_color=MUTED,
+            justify="left",
+            anchor="w"
+        )
+        self.first_run_status.grid(row=1, column=0, padx=18, pady=(0, 12), sticky="ew")
+
+        actions = ctk.CTkFrame(self.first_run_panel, fg_color="transparent")
+        actions.grid(row=2, column=0, padx=18, pady=(0, 16), sticky="ew")
+        actions.grid_columnconfigure(2, weight=1)
+
+        settings_button = self._make_button(
+            actions,
+            text="Открыть настройки",
+            command=lambda: self.show_tab("settings"),
+            outline=True
+        )
+        settings_button.grid(row=0, column=0, padx=(0, 8), sticky="w")
+        self.buttons.append(settings_button)
+
+        google_button = self._make_button(
+            actions,
+            text="Войти в Google",
+            command=lambda: (
+                self.show_tab("extra"),
+                self.flash_google_auth_button()
+            ),
+            outline=True
+        )
+        google_button.grid(row=0, column=1, padx=(0, 8), sticky="w")
+        self.buttons.append(google_button)
 
     def _build_subjects_tab(self) -> None:
         self.subjects_tab.grid_columnconfigure(0, weight=1)
@@ -698,6 +756,7 @@ class DesktopApp(ctk.CTk):
         )
         card.grid(row=0, column=0, sticky="nsew", pady=(8, 0))
         card.grid_columnconfigure(1, weight=1)
+        card.grid_columnconfigure(2, weight=0)
 
         heading = ctk.CTkLabel(
             card,
@@ -706,7 +765,7 @@ class DesktopApp(ctk.CTk):
             font=ctk.CTkFont(size=16, weight="bold"),
             anchor="w"
         )
-        heading.grid(row=0, column=0, columnspan=2, padx=20, pady=(20, 10), sticky="ew")
+        heading.grid(row=0, column=0, columnspan=3, padx=20, pady=(20, 10), sticky="ew")
 
         self.group_entry = self._add_setting_entry(
             card,
@@ -716,9 +775,26 @@ class DesktopApp(ctk.CTk):
             value=str(CONFIG["group_name"])
         )
 
+        check_group_button = self._make_button(
+            card,
+            text="Сохранить группу",
+            command=self.save_group_from_settings,
+            outline=True
+        )
+        check_group_button.grid(row=1, column=2, padx=(0, 20), pady=16, sticky="ew")
+        self.buttons.append(check_group_button)
+
+        self.group_check_status = ctk.CTkLabel(
+            card,
+            text="",
+            text_color=MUTED,
+            anchor="w"
+        )
+        self.group_check_status.grid(row=2, column=1, columnspan=2, padx=20, pady=(0, 4), sticky="ew")
+
         self._add_setting_value(
             card,
-            row=2,
+            row=3,
             title="Учебный год",
             description="Определяется автоматически",
             value=str(get_current_study_year())
@@ -726,7 +802,7 @@ class DesktopApp(ctk.CTk):
 
         self.weeks_entry = self._add_setting_entry(
             card,
-            row=3,
+            row=4,
             title="Количество недель",
             description="Сколько недель загружать из расписания",
             value=str(CONFIG["weeks_ahead"])
@@ -734,7 +810,7 @@ class DesktopApp(ctk.CTk):
 
         self.calendar_entry = self._add_setting_entry(
             card,
-            row=4,
+            row=5,
             title="Имя календаря",
             description="Название календаря в Google Calendar",
             value=str(CONFIG["calendar_name"])
@@ -746,7 +822,7 @@ class DesktopApp(ctk.CTk):
             command=self.save_settings,
             primary=True
         )
-        save_button.grid(row=5, column=1, padx=20, pady=(20, 20), sticky="e")
+        save_button.grid(row=6, column=1, columnspan=2, padx=20, pady=(20, 20), sticky="e")
         self.buttons.append(save_button)
 
     def _add_setting_entry(
@@ -850,6 +926,42 @@ class DesktopApp(ctk.CTk):
             text_color=GREEN if token.ok else RED
         )
         self.refresh_google_auth_button(token.ok)
+        self.refresh_first_run_panel()
+
+    def refresh_first_run_panel(self) -> None:
+        has_group = bool(CONFIG["group_name"].strip())
+        has_credentials = CREDENTIALS_FILE.exists()
+        has_google_login = TOKEN_FILE.exists()
+
+        if has_group and has_credentials and has_google_login:
+            self.first_run_panel.grid_remove()
+            return
+
+        self.first_run_panel.grid()
+
+        group_status = (
+            "Группа указана"
+            if has_group
+            else "Укажите учебную группу в настройках"
+        )
+        credentials_status = (
+            "credentials.json найден"
+            if has_credentials
+            else "Добавьте Google credentials.json"
+        )
+        google_status = (
+            "Успешный вход в аккаунт Google"
+            if has_google_login
+            else "Войдите в аккаунт Google"
+        )
+
+        self.first_run_status.configure(
+            text=(
+                f"1. {group_status}\n"
+                f"2. {credentials_status}\n"
+                f"3. {google_status}"
+            )
+        )
 
     def refresh_google_auth_button(self, is_authorized: bool) -> None:
         if is_authorized:
@@ -1071,6 +1183,14 @@ class DesktopApp(ctk.CTk):
             if "subjects_count" in result or "schedule" in result:
                 self.reload_subjects()
 
+            if "group_id" in result:
+                self.set_group_check_status(
+                    f"Группа сохранена, id: {result['group_id']}",
+                    ok=True
+                )
+                self.refresh_sidebar_info()
+                self.refresh_first_run_panel()
+
         self.refresh_status_panel()
         self.status_label.configure(text="Готово к работе")
         self.set_busy(False)
@@ -1078,12 +1198,31 @@ class DesktopApp(ctk.CTk):
     def _fail_action(self, title: str, error_text: str) -> None:
         self.write_log(f"{title}: ошибка")
         last_line = error_text.strip().splitlines()[-1]
-        self.write_log(f"Причина: {last_line}")
+        reason = self.format_error_reason(last_line)
+        self.write_log(f"Причина: {reason}")
         self.write_log(error_text)
         self.status_label.configure(text="Ошибка выполнения")
+        if title == "Сохранение группы":
+            self.set_group_check_status(reason, ok=False)
         self.set_busy(False)
 
+    def format_error_reason(self, error_line: str) -> str:
+        if ": " in error_line:
+            error_type, message = error_line.split(": ", 1)
+
+            if error_type.endswith("Error"):
+                return message
+
+        return error_line
+
     def write_summary(self, result: dict) -> None:
+        if "group_id" in result:
+            self.write_log(
+                f"Итог: группа {result['group_name']} сохранена, "
+                f"id {result['group_id']}"
+            )
+            return
+
         if "lessons_count" in result:
             self.write_log(
                 f"Итог: занятий {result['lessons_count']}, "
@@ -1204,6 +1343,61 @@ class DesktopApp(ctk.CTk):
         self.render_subjects()
         self.write_log("subjects.json сохранён.")
 
+    def set_group_check_status(
+        self,
+        message: str,
+        ok: bool
+    ) -> None:
+        self.group_check_status.configure(
+            text=message,
+            text_color=GREEN if ok else RED
+        )
+
+    def save_group_from_settings(self) -> None:
+        group_name = normalize_group_name(
+            self.group_entry.get()
+        )
+
+        if not group_name:
+            message = "Введите группу перед сохранением."
+            self.set_group_check_status(message, ok=False)
+            self.status_label.configure(text=message)
+            self.write_log(message)
+            return
+
+        self.group_entry.delete(0, "end")
+        self.group_entry.insert(0, group_name)
+
+        def action(status_callback) -> dict:
+            status_callback(f"Проверяю группу: {group_name}")
+
+            group_id = resolve_group_id(
+                group_name,
+                status_callback=status_callback
+            )
+
+            if not group_id:
+                raise ValueError(f"Группа не найдена: {group_name}")
+
+            status_callback(f"Группа найдена, id: {group_id}")
+
+            new_config = {
+                **CONFIG,
+                "group_name": group_name
+            }
+            save_config(new_config)
+            status_callback("Группа сохранена.")
+
+            return {
+                "group_name": group_name,
+                "group_id": group_id
+            }
+
+        self.run_action(
+            "Сохранение группы",
+            action
+        )
+
     def save_settings(self) -> None:
         try:
             weeks_ahead = int(self.weeks_entry.get().strip())
@@ -1220,23 +1414,22 @@ class DesktopApp(ctk.CTk):
             )
             return
 
-        group_name = self.group_entry.get().strip()
         calendar_name = self.calendar_entry.get().strip()
 
-        if not group_name or not calendar_name:
+        if not calendar_name:
             self.status_label.configure(
-                text="Группа и имя календаря не должны быть пустыми"
+                text="Имя календаря не должно быть пустым"
             )
             return
 
         new_config = {
             **CONFIG,
-            "group_name": group_name,
             "weeks_ahead": weeks_ahead,
             "calendar_name": calendar_name
         }
         save_config(new_config)
         self.refresh_sidebar_info()
+        self.refresh_first_run_panel()
         self.status_label.configure(text="Настройки сохранены")
         self.write_log("config.json сохранён.")
 
