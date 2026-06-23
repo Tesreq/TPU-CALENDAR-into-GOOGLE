@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import json
 from datetime import datetime
 
@@ -68,7 +68,7 @@ def update_schedule(
 
     if not group_name:
         raise ValueError(
-            "Group is not configured. Set the group name in Settings first."
+            "Группа не настроена. Сначала сохраните группу в настройках."
         )
 
     emit(f"Ищу группу: {group_name}", status_callback)
@@ -80,7 +80,8 @@ def update_schedule(
 
     if not group_id:
         raise ValueError(
-            f"Не удалось найти группу: {group_name}"
+            f"Сайт ТПУ сейчас не нашел группу {group_name}. "
+            "Если группа сохранена правильно, возможно, для нее сейчас нет расписания."
         )
 
     emit(f"Группа найдена, id: {group_id}", status_callback)
@@ -236,3 +237,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

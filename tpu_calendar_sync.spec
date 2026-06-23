@@ -1,4 +1,4 @@
-# -*- mode: python ; coding: utf-8 -*-
+﻿# -*- mode: python ; coding: utf-8 -*-
 
 
 a = Analysis(
@@ -6,7 +6,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ("app/config.json", "app"),
+        ("app/default_config.json", "app"),
         ("app/assets", "app/assets"),
     ],
     hiddenimports=[],
@@ -40,3 +40,4 @@ exe = EXE(
     entitlements_file=None,
     icon="app/assets/avatar.ico",
 )
+

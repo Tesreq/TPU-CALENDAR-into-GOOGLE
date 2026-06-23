@@ -1,4 +1,4 @@
-import json
+﻿import json
 import shutil
 import sys
 from pathlib import Path
@@ -18,12 +18,12 @@ if IS_FROZEN:
 else:
     APP_DIR = PROJECT_DIR
     BUNDLED_APP_DIR = PACKAGE_DIR
-    DATA_DIR = PACKAGE_DIR
+    DATA_DIR = PROJECT_DIR / "data"
 
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG_FILE = DATA_DIR / "config.json"
-DEFAULT_CONFIG_FILE = BUNDLED_APP_DIR / "config.json"
+DEFAULT_CONFIG_FILE = BUNDLED_APP_DIR / "default_config.json"
 PARSED_SCHEDULE_FILE = DATA_DIR / "parsed_schedule.json"
 SUBJECTS_FILE = DATA_DIR / "subjects.json"
 CREDENTIALS_FILE = DATA_DIR / "credentials.json"
@@ -79,3 +79,4 @@ def save_config(config: dict) -> None:
             ensure_ascii=False,
             indent=2
         )
+

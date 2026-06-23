@@ -1,4 +1,4 @@
-# TPU Calendar Sync
+﻿# TPU Calendar Sync
 
 Desktop-приложение для синхронизации расписания группы ТПУ с Google Calendar.
 
@@ -22,7 +22,8 @@ app/
   sync_to_json.py      загрузка расписания в JSON
   sync_calendar.py     синхронизация Google Calendar
   calendar_api.py      авторизация Google API
-  config.py            пути и config.json
+  config.py            пути, default_config.json и data/config.json
+  default_config.json    безличный конфиг по умолчанию
   assets/              иконки приложения
 
 desktop.py             запуск desktop-приложения
@@ -50,13 +51,13 @@ cd path\to\TPU-Calendar-Sync
 В папку `app` положите OAuth-файл:
 
 ```text
-app/credentials.json
+data/credentials.json
 ```
 
 При первом подключении Google Calendar приложение откроет браузер для входа и создаст:
 
 ```text
-app/token.json
+data/token.json
 ```
 
 Эти файлы добавлены в `.gitignore` и не должны попадать в репозиторий.
@@ -143,7 +144,7 @@ dist/data/credentials.json
 В режиме разработки они сохраняются в:
 
 ```text
-app/config.json
+data/config.json
 ```
 
 В exe-режиме они сохраняются в:
@@ -154,6 +155,7 @@ data/config.json
 
 ## Примечания
 
-- `credentials.json`, `token.json`, `parsed_schedule.json`, `subjects.json`, `logs/`, `build/`, `dist/` не коммитятся.
+- `data/`, `credentials.json`, `token.json`, `parsed_schedule.json`, `subjects.json`, `logs/`, `build/`, `dist/` не коммитятся.
 - Парсер зависит от HTML-разметки сайта ТПУ. Если сайт изменится, приложение покажет ошибку `ScheduleParseError`.
 - Для полноценного релиза стоит добавить тесты парсера на сохранённых HTML-примерах.
+

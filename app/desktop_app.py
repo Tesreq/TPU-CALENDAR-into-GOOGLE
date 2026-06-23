@@ -1,4 +1,4 @@
-import threading
+﻿import threading
 import traceback
 from collections.abc import Callable
 from datetime import date
@@ -41,6 +41,7 @@ Action = Callable[[Callable[[str], None]], dict | bool]
 BLUE = "#1a73e8"
 GREEN = "#34a853"
 RED = "#ea4335"
+WARNING = "#f9ab00"
 TEXT = "#202124"
 MUTED = "#5f6368"
 BORDER = "#d9e2ef"
@@ -1183,14 +1184,21 @@ class DesktopApp(ctk.CTk):
             if "subjects_count" in result or "schedule" in result:
                 self.reload_subjects()
 
-            if "group_id" in result:
-                self.set_group_check_status(
-                    f"Группа сохранена, id: {result['group_id']}",
-                    ok=True
-                )
+            if "group_verified" in result:
+                if result["group_verified"]:
+                    self.set_group_check_status(
+                        f"Группа сохранена, id: {result['group_id']}",
+                        state="ok"
+                    )
+
+                else:
+                    self.set_group_check_status(
+                        "Группа сохранена. Сайт ТПУ сейчас ее не подтвердил.",
+                        state="warning"
+                    )
+
                 self.refresh_sidebar_info()
                 self.refresh_first_run_panel()
-
         self.refresh_status_panel()
         self.status_label.configure(text="Готово к работе")
         self.set_busy(False)
@@ -1203,7 +1211,7 @@ class DesktopApp(ctk.CTk):
         self.write_log(error_text)
         self.status_label.configure(text="Ошибка выполнения")
         if title == "Сохранение группы":
-            self.set_group_check_status(reason, ok=False)
+            self.set_group_check_status(reason, state="error")
         self.set_busy(False)
 
     def format_error_reason(self, error_line: str) -> str:
@@ -1216,13 +1224,20 @@ class DesktopApp(ctk.CTk):
         return error_line
 
     def write_summary(self, result: dict) -> None:
-        if "group_id" in result:
-            self.write_log(
-                f"Итог: группа {result['group_name']} сохранена, "
-                f"id {result['group_id']}"
-            )
-            return
+        if "group_verified" in result:
+            if result["group_verified"]:
+                self.write_log(
+                    f"Итог: группа {result['group_name']} сохранена, "
+                    f"id {result['group_id']}"
+                )
 
+            else:
+                self.write_log(
+                    f"Итог: группа {result['group_name']} сохранена, "
+                    "но сайт ТПУ сейчас ее не подтвердил"
+                )
+
+            return
         if "lessons_count" in result:
             self.write_log(
                 f"Итог: занятий {result['lessons_count']}, "
@@ -1346,11 +1361,17 @@ class DesktopApp(ctk.CTk):
     def set_group_check_status(
         self,
         message: str,
-        ok: bool
+        state: str
     ) -> None:
+        colors = {
+            "ok": GREEN,
+            "warning": WARNING,
+            "error": RED
+        }
+
         self.group_check_status.configure(
             text=message,
-            text_color=GREEN if ok else RED
+            text_color=colors.get(state, MUTED)
         )
 
     def save_group_from_settings(self) -> None:
@@ -1360,7 +1381,7 @@ class DesktopApp(ctk.CTk):
 
         if not group_name:
             message = "Введите группу перед сохранением."
-            self.set_group_check_status(message, ok=False)
+            self.set_group_check_status(message, state="error")
             self.status_label.configure(text=message)
             self.write_log(message)
             return
@@ -1369,17 +1390,7 @@ class DesktopApp(ctk.CTk):
         self.group_entry.insert(0, group_name)
 
         def action(status_callback) -> dict:
-            status_callback(f"Проверяю группу: {group_name}")
-
-            group_id = resolve_group_id(
-                group_name,
-                status_callback=status_callback
-            )
-
-            if not group_id:
-                raise ValueError(f"Группа не найдена: {group_name}")
-
-            status_callback(f"Группа найдена, id: {group_id}")
+            status_callback(f"Сохраняю группу: {group_name}")
 
             new_config = {
                 **CONFIG,
@@ -1387,10 +1398,35 @@ class DesktopApp(ctk.CTk):
             }
             save_config(new_config)
             status_callback("Группа сохранена.")
+            status_callback(f"Проверяю группу на сайте ТПУ: {group_name}")
+
+            group_id = None
+            check_error = ""
+
+            try:
+                group_id = resolve_group_id(
+                    group_name,
+                    status_callback=status_callback
+                )
+
+            except Exception as error:
+                check_error = str(error)
+
+            if group_id:
+                status_callback(f"Группа найдена на сайте ТПУ, id: {group_id}")
+
+            else:
+                status_callback(
+                    "Сайт ТПУ сейчас не подтвердил группу. "
+                    "Название сохранено, но синхронизация может быть недоступна, "
+                    "пока расписание не появится на сайте."
+                )
 
             return {
                 "group_name": group_name,
-                "group_id": group_id
+                "group_id": group_id,
+                "group_verified": bool(group_id),
+                "check_error": check_error
             }
 
         self.run_action(
@@ -1453,3 +1489,4 @@ class DesktopApp(ctk.CTk):
 def main() -> None:
     app = DesktopApp()
     app.mainloop()
+
