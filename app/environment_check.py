@@ -60,9 +60,9 @@ def check_environment(
             title="Google token",
             ok=TOKEN_FILE.exists(),
             message=(
-                "Авторизован"
+                "Успешный вход в аккаунт Google"
                 if TOKEN_FILE.exists()
-                else "Не авторизован"
+                else "Вход в Google не выполнен"
             )
         ),
         EnvironmentStatus(

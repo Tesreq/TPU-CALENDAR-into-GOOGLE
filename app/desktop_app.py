@@ -44,7 +44,7 @@ MUTED = "#5f6368"
 BORDER = "#d9e2ef"
 SURFACE = "#ffffff"
 APP_BG = "#f8fafd"
-APP_MIN_WIDTH = 980
+APP_MIN_WIDTH = 1180
 APP_MIN_HEIGHT = 900
 LOG_MIN_HEIGHT = 620
 
@@ -157,7 +157,7 @@ class DesktopApp(ctk.CTk):
             card,
             row=5,
             text="Синхронизировать",
-            command=lambda: self.run_action(
+            command=lambda: self.run_google_required_action(
                 "Синхронизация",
                 full_sync
             ),
@@ -309,22 +309,17 @@ class DesktopApp(ctk.CTk):
         self.status_panel.grid(row=0, column=0, padx=24, pady=(22, 14), sticky="ew")
         self.status_panel.grid_propagate(False)
         self.status_panel.configure(height=82)
-        self.status_panel.grid_columnconfigure((0, 1, 2), weight=1, uniform="status")
+        self.status_panel.grid_columnconfigure((0, 1), weight=1, uniform="status")
 
         self.tpu_status, self.tpu_status_marker = self._build_status_item(
             0,
             "Расписание",
             "Не загружено"
         )
-        self.google_status, self.google_status_marker = self._build_status_item(
-            1,
-            "Google Calendar",
-            "Не подключён"
-        )
         self.account_status, self.account_status_marker = self._build_status_item(
-            2,
-            "Аккаунт",
-            "Не авторизован"
+            1,
+            "Google",
+            "Вход в Google не выполнен"
         )
 
         self.status_label = ctk.CTkLabel(
@@ -664,7 +659,7 @@ class DesktopApp(ctk.CTk):
         calendar_button = self._make_button(
             card,
             text="Синхронизировать календарь",
-            command=lambda: self.run_action(
+            command=lambda: self.run_google_required_action(
                 "Синхронизация календаря",
                 sync_calendar
             ),
@@ -837,7 +832,6 @@ class DesktopApp(ctk.CTk):
         }
 
         schedule = statuses["schedule"]
-        credentials = statuses["credentials"]
         token = statuses["token"]
 
         self.tpu_status.configure(
@@ -846,14 +840,12 @@ class DesktopApp(ctk.CTk):
         self.tpu_status_marker.configure(
             text_color=GREEN if schedule.ok else RED
         )
-        self.google_status.configure(
-            text="Готов к входу" if credentials.ok else credentials.message
-        )
-        self.google_status_marker.configure(
-            text_color=GREEN if credentials.ok else RED
-        )
         self.account_status.configure(
-            text="Авторизован" if token.ok else "Не авторизован"
+            text=(
+                "Успешный вход в аккаунт Google"
+                if token.ok
+                else "Вход в Google не выполнен"
+            )
         )
         self.account_status_marker.configure(
             text_color=GREEN if token.ok else RED
@@ -891,7 +883,61 @@ class DesktopApp(ctk.CTk):
             login_google_account
         )
 
+    def ensure_google_authorized(self) -> bool:
+        if TOKEN_FILE.exists():
+            return True
+
+        message = (
+            "Сначала выполните вход в аккаунт Google "
+            "во вкладке «Дополнительно»."
+        )
+        self.status_label.configure(text=message)
+        self.write_log(message)
+        self.refresh_status_panel()
+        self.show_tab("extra")
+        self.flash_google_auth_button()
+
+        return False
+
+    def flash_google_auth_button(
+        self,
+        step: int = 0
+    ) -> None:
+        pulse_colors = [
+            SURFACE,
+            "#f2f7ff",
+            "#e6f0ff",
+            "#d9e8ff",
+            "#e6f0ff",
+            "#f2f7ff",
+            SURFACE
+        ]
+
+        if step >= len(pulse_colors):
+            self.refresh_google_auth_button(TOKEN_FILE.exists())
+            return
+
+        self.google_auth_button.configure(
+            fg_color=pulse_colors[step],
+            border_color=BLUE,
+            text_color=BLUE
+        )
+
+        self.after(
+            140,
+            lambda: self.flash_google_auth_button(step + 1)
+        )
+
+    def run_google_required_action(self, title: str, action: Action) -> None:
+        if not self.ensure_google_authorized():
+            return
+
+        self.run_action(title, action)
+
     def confirm_delete_calendar(self) -> None:
+        if not self.ensure_google_authorized():
+            return
+
         dialog = ctk.CTkToplevel(self)
         dialog.title("Удалить календарь")
         dialog.geometry("460x230")
@@ -1032,6 +1078,8 @@ class DesktopApp(ctk.CTk):
 
     def _fail_action(self, title: str, error_text: str) -> None:
         self.write_log(f"{title}: ошибка")
+        last_line = error_text.strip().splitlines()[-1]
+        self.write_log(f"Причина: {last_line}")
         self.write_log(error_text)
         self.status_label.configure(text="Ошибка выполнения")
         self.set_busy(False)

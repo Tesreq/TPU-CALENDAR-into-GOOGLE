@@ -12,13 +12,13 @@ def login_google_account(
 ) -> bool:
     if not CREDENTIALS_FILE.exists():
         raise FileNotFoundError(
-            f"Google credentials file not found: {CREDENTIALS_FILE}"
+            f"Файл Google credentials.json не найден: {CREDENTIALS_FILE}"
         )
 
     get_calendar_service(status_callback=status_callback)
 
     emit(
-        "Google account has been connected.",
+        "Успешный вход в аккаунт Google.",
         status_callback
     )
 
@@ -30,7 +30,7 @@ def logout_google_account(
 ) -> bool:
     if not TOKEN_FILE.exists():
         emit(
-            "Google account is not connected.",
+            "Вход в Google не выполнен.",
             status_callback
         )
 
@@ -39,7 +39,7 @@ def logout_google_account(
     TOKEN_FILE.unlink()
 
     emit(
-        "Google account has been disconnected.",
+        "Выход из аккаунта Google выполнен.",
         status_callback
     )
 
