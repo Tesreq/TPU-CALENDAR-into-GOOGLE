@@ -61,9 +61,14 @@ def save_json(filename: str, data) -> None:
 def update_schedule(
     status_callback: StatusCallback | None = None
 ) -> dict:
-    group_name = CONFIG["group_name"]
+    group_name = CONFIG["group_name"].strip()
     study_year = CONFIG["study_year"]
     weeks_ahead = CONFIG["weeks_ahead"]
+
+    if not group_name:
+        raise ValueError(
+            "Group is not configured. Set the group name in Settings first."
+        )
 
     emit(f"Ищу группу: {group_name}", status_callback)
 

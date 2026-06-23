@@ -11,6 +11,8 @@ if __package__ in (None, ""):
 from .app_actions import (
     delete_calendar,
     full_sync,
+    login_google_account,
+    logout_google_account,
     sync_calendar,
     update_schedule
 )
@@ -24,6 +26,8 @@ def show_menu():
     print("3. Синхронизировать Google Calendar")
     print("4. Полная синхронизация")
     print("5. Удалить календарь TPU")
+    print("6. Войти в Google")
+    print("7. Выйти из Google")
     print("0. Выход")
 
 
@@ -66,6 +70,12 @@ def main():
 
         elif choice == "5":
             delete_calendar()
+
+        elif choice == "6":
+            login_google_account()
+
+        elif choice == "7":
+            logout_google_account()
 
         elif choice == "0":
             print("Выход")

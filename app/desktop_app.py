@@ -16,7 +16,9 @@ except ImportError as error:
 from .app_actions import (
     delete_calendar,
     full_sync,
+    login_google_account,
     load_subjects,
+    logout_google_account,
     save_subjects,
     sync_calendar,
     update_schedule
@@ -24,6 +26,7 @@ from .app_actions import (
 from .config import (
     AVATAR_FILE,
     CONFIG,
+    TOKEN_FILE,
     save_config
 )
 from .environment_check import check_environment
@@ -180,16 +183,26 @@ class DesktopApp(ctk.CTk):
             outline=True
         )
 
+        self.google_auth_button = self._make_button(
+            card,
+            text="Войти в Google",
+            command=self.run_google_auth_action,
+            outline=True
+        )
+        self._style_sidebar_button(self.google_auth_button)
+        self.google_auth_button.grid(row=8, column=0, padx=20, pady=5, sticky="ew")
+        self.buttons.append(self.google_auth_button)
+
         self._add_action_button(
             card,
-            row=8,
+            row=9,
             text="Удалить календарь TPU",
             command=self.confirm_delete_calendar,
             danger=True
         )
 
         spacer = ctk.CTkFrame(card, height=26, fg_color="transparent")
-        spacer.grid(row=9, column=0, sticky="ew")
+        spacer.grid(row=10, column=0, sticky="ew")
 
         clear_button = self._make_button(
             card,
@@ -197,7 +210,8 @@ class DesktopApp(ctk.CTk):
             command=self.clear_log,
             outline=True
         )
-        clear_button.grid(row=10, column=0, padx=20, pady=(4, 8), sticky="ew")
+        self._style_sidebar_button(clear_button)
+        clear_button.grid(row=11, column=0, padx=20, pady=(4, 8), sticky="ew")
 
         exit_button = self._make_button(
             card,
@@ -205,7 +219,8 @@ class DesktopApp(ctk.CTk):
             command=self.destroy,
             outline=True
         )
-        exit_button.grid(row=11, column=0, padx=20, pady=(0, 18), sticky="ew")
+        self._style_sidebar_button(exit_button)
+        exit_button.grid(row=12, column=0, padx=20, pady=(0, 18), sticky="ew")
 
         footer = ctk.CTkLabel(
             card,
@@ -214,7 +229,7 @@ class DesktopApp(ctk.CTk):
             justify="left",
             font=ctk.CTkFont(size=12)
         )
-        footer.grid(row=12, column=0, padx=20, pady=(0, 16), sticky="w")
+        footer.grid(row=13, column=0, padx=20, pady=(0, 16), sticky="w")
 
         self.refresh_sidebar_info()
 
@@ -266,6 +281,47 @@ class DesktopApp(ctk.CTk):
             corner_radius=6
         )
 
+    def _style_sidebar_button(
+        self,
+        button: ctk.CTkButton,
+        danger: bool = False
+    ) -> None:
+        text_color = RED if danger else BLUE
+        border_color = "#ffb3b3" if danger else "#cbd7ea"
+        button.sidebar_danger = danger
+
+        button.configure(
+            fg_color=SURFACE,
+            hover_color=BLUE,
+            border_width=1,
+            border_color=border_color,
+            text_color=text_color
+        )
+
+        def on_enter(_event) -> None:
+            if button.cget("state") == "disabled":
+                return
+
+            button.configure(
+                fg_color=BLUE,
+                border_color=BLUE,
+                text_color="white"
+            )
+
+        def on_leave(_event) -> None:
+            button.configure(
+                fg_color=SURFACE,
+                border_color=border_color,
+                text_color=text_color
+            )
+
+        button.bind("<Enter>", on_enter)
+        button.bind("<Leave>", on_leave)
+
+        for child in button.winfo_children():
+            child.bind("<Enter>", on_enter)
+            child.bind("<Leave>", on_leave)
+
     def _add_action_button(
         self,
         parent,
@@ -284,6 +340,7 @@ class DesktopApp(ctk.CTk):
             danger=danger,
             outline=outline
         )
+        self._style_sidebar_button(button, danger=danger)
         button.grid(row=row, column=0, padx=20, pady=5, sticky="ew")
         self.buttons.append(button)
 
@@ -300,20 +357,20 @@ class DesktopApp(ctk.CTk):
         self.status_panel.configure(height=82)
         self.status_panel.grid_columnconfigure((0, 1, 2), weight=1, uniform="status")
 
-        self.tpu_status = self._build_status_item(
+        self.tpu_status, self.tpu_status_marker = self._build_status_item(
             0,
-            "TPU API",
-            "Не проверял"
+            "Расписание",
+            "Не загружено"
         )
-        self.google_status = self._build_status_item(
+        self.google_status, self.google_status_marker = self._build_status_item(
             1,
             "Google Calendar",
             "Не подключён"
         )
-        self.account_status = self._build_status_item(
+        self.account_status, self.account_status_marker = self._build_status_item(
             2,
             "Аккаунт",
-            "token.json не найден"
+            "Не авторизован"
         )
 
         self.status_label = ctk.CTkLabel(
@@ -433,7 +490,12 @@ class DesktopApp(ctk.CTk):
                 fg_color=BLUE if is_active else APP_BG
             )
 
-    def _build_status_item(self, column: int, title: str, subtitle: str) -> ctk.CTkLabel:
+    def _build_status_item(
+        self,
+        column: int,
+        title: str,
+        subtitle: str
+    ) -> tuple[ctk.CTkLabel, ctk.CTkLabel]:
         item = ctk.CTkFrame(
             self.status_panel,
             fg_color="transparent"
@@ -467,7 +529,7 @@ class DesktopApp(ctk.CTk):
         )
         subtitle_label.grid(row=1, column=1, sticky="ew")
 
-        return subtitle_label
+        return subtitle_label, marker
 
     def _build_log_tab(self) -> None:
         self.log_tab.grid_columnconfigure(0, weight=1)
@@ -475,42 +537,38 @@ class DesktopApp(ctk.CTk):
 
         summary = ctk.CTkFrame(
             self.log_tab,
-            fg_color=SURFACE,
-            border_width=1,
-            border_color=BORDER,
-            corner_radius=8
+            fg_color="transparent",
+            corner_radius=0
         )
-        summary.grid(row=0, column=0, sticky="ew", pady=(8, 14))
+        summary.grid(row=0, column=0, sticky="ew", pady=(4, 12))
         summary.grid_columnconfigure(1, weight=1)
-
-        sync_icon = ctk.CTkLabel(
-            summary,
-            text="↻",
-            text_color=BLUE,
-            fg_color="#e8f0fe",
-            width=58,
-            height=58,
-            corner_radius=29,
-            font=ctk.CTkFont(size=30, weight="bold")
-        )
-        sync_icon.grid(row=0, column=0, padx=22, pady=18)
 
         self.ready_title = ctk.CTkLabel(
             summary,
-            text="Готово к синхронизации",
+            text="Журнал",
             text_color=TEXT,
-            font=ctk.CTkFont(size=18, weight="bold"),
+            font=ctk.CTkFont(size=16, weight="bold"),
             anchor="w"
         )
-        self.ready_title.grid(row=0, column=1, sticky="sw", pady=(18, 2))
+        self.ready_title.grid(row=0, column=0, sticky="w")
 
         ready_subtitle = ctk.CTkLabel(
             summary,
-            text="Расписание и календарь управляются из этого окна",
+            text="Готово к работе",
             text_color=MUTED,
             anchor="w"
         )
-        ready_subtitle.grid(row=1, column=1, sticky="nw", pady=(0, 18))
+        ready_subtitle.grid(row=0, column=1, padx=(14, 12), sticky="w")
+
+        clear_button = self._make_button(
+            summary,
+            text="Очистить",
+            command=self.clear_log,
+            outline=True
+        )
+        clear_button.configure(width=112)
+        clear_button.grid(row=0, column=2, sticky="e")
+        self.buttons.append(clear_button)
 
         self.log_box = ctk.CTkTextbox(
             self.log_tab,
@@ -698,6 +756,8 @@ class DesktopApp(ctk.CTk):
         return entry
 
     def refresh_sidebar_info(self) -> None:
+        group_name = CONFIG["group_name"] or "Не задана"
+
         try:
             current_week = get_current_study_week(
                 date.today(),
@@ -709,7 +769,7 @@ class DesktopApp(ctk.CTk):
 
         self.sidebar_info.configure(
             text=(
-                f"Группа\n{CONFIG['group_name']}\n\n"
+                f"Группа\n{group_name}\n\n"
                 f"Неделя\n{current_week} / +{CONFIG['weeks_ahead']}"
             )
         )
@@ -725,34 +785,132 @@ class DesktopApp(ctk.CTk):
         token = statuses["token"]
 
         self.tpu_status.configure(
-            text="Готово" if schedule.ok else schedule.message
+            text="Загружено" if schedule.ok else schedule.message
+        )
+        self.tpu_status_marker.configure(
+            text_color=GREEN if schedule.ok else RED
         )
         self.google_status.configure(
-            text="Подключён" if credentials.ok else credentials.message
+            text="Готов к входу" if credentials.ok else credentials.message
         )
-        self.account_status.configure(text=token.message)
+        self.google_status_marker.configure(
+            text_color=GREEN if credentials.ok else RED
+        )
+        self.account_status.configure(
+            text="Авторизован" if token.ok else "Не авторизован"
+        )
+        self.account_status_marker.configure(
+            text_color=GREEN if token.ok else RED
+        )
+        self.refresh_google_auth_button(token.ok)
+
+    def refresh_google_auth_button(self, is_authorized: bool) -> None:
+        if is_authorized:
+            self.google_auth_button.configure(
+                text="Выйти из Google"
+            )
+            self._style_sidebar_button(
+                self.google_auth_button,
+                danger=True
+            )
+            return
+
+        self.google_auth_button.configure(
+            text="Войти в Google"
+        )
+        self._style_sidebar_button(
+            self.google_auth_button
+        )
+
+    def run_google_auth_action(self) -> None:
+        if TOKEN_FILE.exists():
+            self.run_action(
+                "Выход из Google",
+                logout_google_account
+            )
+            return
+
+        self.run_action(
+            "Вход в Google",
+            login_google_account
+        )
 
     def confirm_delete_calendar(self) -> None:
         dialog = ctk.CTkToplevel(self)
         dialog.title("Удалить календарь")
-        dialog.geometry("430x180")
+        dialog.geometry("460x230")
         dialog.resizable(False, False)
+        dialog.configure(fg_color=APP_BG)
         dialog.transient(self)
         dialog.grab_set()
 
-        label = ctk.CTkLabel(
+        icon_file = AVATAR_FILE.with_suffix(".ico")
+        if icon_file.exists():
+            dialog.after(
+                200,
+                lambda: dialog.iconbitmap(str(icon_file))
+            )
+
+        self.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - 460) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - 230) // 2
+        dialog.geometry(f"460x230+{x}+{y}")
+
+        panel = ctk.CTkFrame(
             dialog,
+            fg_color=SURFACE,
+            border_width=1,
+            border_color=BORDER,
+            corner_radius=8
+        )
+        panel.pack(padx=18, pady=18, fill="both", expand=True)
+        panel.grid_columnconfigure(0, weight=1)
+
+        header = ctk.CTkFrame(
+            panel,
+            fg_color="transparent"
+        )
+        header.grid(row=0, column=0, padx=22, pady=(20, 8), sticky="ew")
+        header.grid_columnconfigure(1, weight=1)
+
+        if AVATAR_FILE.exists():
+            delete_dialog_icon = ctk.CTkImage(
+                light_image=Image.open(AVATAR_FILE),
+                dark_image=Image.open(AVATAR_FILE),
+                size=(34, 34)
+            )
+            icon_label = ctk.CTkLabel(
+                header,
+                text="",
+                image=delete_dialog_icon
+            )
+            icon_label.grid(row=0, column=0, padx=(0, 12), sticky="w")
+            self.delete_dialog_icon = delete_dialog_icon
+
+        title = ctk.CTkLabel(
+            header,
+            text="Удалить календарь TPU?",
+            text_color=TEXT,
+            font=ctk.CTkFont(size=17, weight="bold"),
+            anchor="w"
+        )
+        title.grid(row=0, column=1, sticky="ew")
+
+        label = ctk.CTkLabel(
+            panel,
             text=(
-                "Удалить календарь TPU из Google Calendar?\n"
+                "Календарь будет удалён из Google Calendar. "
                 "Это действие нельзя отменить."
             ),
-            wraplength=360,
-            justify="center"
+            text_color=MUTED,
+            wraplength=370,
+            justify="left",
+            anchor="w"
         )
-        label.pack(padx=24, pady=(28, 18))
+        label.grid(row=1, column=0, padx=22, pady=(0, 18), sticky="ew")
 
-        actions = ctk.CTkFrame(dialog, fg_color="transparent")
-        actions.pack(padx=24, pady=(0, 24), fill="x")
+        actions = ctk.CTkFrame(panel, fg_color="transparent")
+        actions.grid(row=2, column=0, padx=22, pady=(6, 22), sticky="ew")
         actions.grid_columnconfigure((0, 1), weight=1)
 
         cancel = self._make_button(
@@ -770,6 +928,7 @@ class DesktopApp(ctk.CTk):
             danger=True
         )
         confirm.grid(row=0, column=1, padx=(8, 0), sticky="ew")
+        cancel.focus_set()
 
     def _delete_after_confirm(self, dialog: ctk.CTkToplevel) -> None:
         dialog.destroy()
@@ -985,6 +1144,16 @@ class DesktopApp(ctk.CTk):
 
         for button in self.buttons:
             button.configure(state=state)
+
+        if not busy:
+            for button in self.buttons:
+                if hasattr(button, "sidebar_danger"):
+                    self._style_sidebar_button(
+                        button,
+                        danger=button.sidebar_danger
+                    )
+
+            self.refresh_status_panel()
 
 
 def main() -> None:

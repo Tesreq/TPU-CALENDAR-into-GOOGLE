@@ -50,7 +50,7 @@ def check_environment(
             title="Google credentials",
             ok=CREDENTIALS_FILE.exists(),
             message=(
-                "credentials.json найден"
+                "credentials.json найден, можно войти"
                 if CREDENTIALS_FILE.exists()
                 else "credentials.json не найден"
             )
@@ -60,9 +60,9 @@ def check_environment(
             title="Google token",
             ok=TOKEN_FILE.exists(),
             message=(
-                "token.json найден"
+                "Авторизован"
                 if TOKEN_FILE.exists()
-                else "token.json появится после входа"
+                else "Не авторизован"
             )
         ),
         EnvironmentStatus(
@@ -70,9 +70,9 @@ def check_environment(
             title="Расписание",
             ok=PARSED_SCHEDULE_FILE.exists(),
             message=(
-                "parsed_schedule.json найден"
+                "Загружено"
                 if PARSED_SCHEDULE_FILE.exists()
-                else "обновите расписание"
+                else "Не загружено"
             )
         ),
         EnvironmentStatus(
@@ -80,9 +80,9 @@ def check_environment(
             title="Предметы",
             ok=SUBJECTS_FILE.exists(),
             message=(
-                "subjects.json найден"
+                "Список загружен"
                 if SUBJECTS_FILE.exists()
-                else "обновите расписание"
+                else "Список не загружен"
             )
         )
     ]
