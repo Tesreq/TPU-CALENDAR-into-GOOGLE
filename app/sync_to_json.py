@@ -7,6 +7,7 @@ from .config import CONFIG, PARSED_SCHEDULE_FILE, SUBJECTS_FILE
 from .group_search import resolve_group_id
 from .parser import (
     get_current_study_week,
+    get_current_study_year,
     build_schedule_url,
     fetch_rendered_html_many,
     parse_schedule
@@ -62,7 +63,7 @@ def update_schedule(
     status_callback: StatusCallback | None = None
 ) -> dict:
     group_name = CONFIG["group_name"].strip()
-    study_year = CONFIG["study_year"]
+    study_year = get_current_study_year()
     weeks_ahead = CONFIG["weeks_ahead"]
 
     if not group_name:

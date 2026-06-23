@@ -13,9 +13,19 @@ class ScheduleParseError(Exception):
     pass
 
 
+def get_current_study_year(today: date | None = None) -> int:
+    if today is None:
+        today = date.today()
+
+    if today.month >= 9:
+        return today.year
+
+    return today.year - 1
+
+
 def get_study_year_start(study_year: int | None = None) -> date:
     if study_year is None:
-        study_year = CONFIG["study_year"]
+        study_year = get_current_study_year()
 
     return date(study_year, 9, 1)
 
@@ -409,9 +419,9 @@ def parse_schedule(
 
 def main():
     today = date.today()
-    study_year = CONFIG["study_year"]
+    study_year = get_current_study_year(today)
 
-    week = get_current_study_week(today, study_year)
+    week = get_current_study_week(today)
     group_name = CONFIG["group_name"]
     group_id = resolve_group_id(group_name)
 

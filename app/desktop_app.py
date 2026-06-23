@@ -31,7 +31,7 @@ from .config import (
 )
 from .environment_check import check_environment
 from .manage_subjects import set_all_subjects_enabled
-from .parser import get_current_study_week
+from .parser import get_current_study_week, get_current_study_year
 
 
 Action = Callable[[Callable[[str], None]], dict | bool]
@@ -44,6 +44,9 @@ MUTED = "#5f6368"
 BORDER = "#d9e2ef"
 SURFACE = "#ffffff"
 APP_BG = "#f8fafd"
+APP_MIN_WIDTH = 980
+APP_MIN_HEIGHT = 900
+LOG_MIN_HEIGHT = 620
 
 
 class DesktopApp(ctk.CTk):
@@ -51,8 +54,8 @@ class DesktopApp(ctk.CTk):
         super().__init__()
 
         self.title("TPU Calendar Sync")
-        self.geometry("1180x720")
-        self.minsize(980, 620)
+        self.geometry(f"1180x{APP_MIN_HEIGHT}")
+        self.minsize(APP_MIN_WIDTH, APP_MIN_HEIGHT)
         self.configure(fg_color=APP_BG)
 
         ctk.set_appearance_mode("light")
@@ -153,65 +156,16 @@ class DesktopApp(ctk.CTk):
         self._add_action_button(
             card,
             row=5,
-            text="Обновить расписание",
+            text="Синхронизировать",
             command=lambda: self.run_action(
-                "Обновление расписания",
-                update_schedule
-            ),
-            outline=True
-        )
-
-        self._add_action_button(
-            card,
-            row=6,
-            text="Синхронизировать календарь",
-            command=lambda: self.run_action(
-                "Синхронизация календаря",
-                sync_calendar
+                "Синхронизация",
+                full_sync
             ),
             primary=True
         )
 
-        self._add_action_button(
-            card,
-            row=7,
-            text="Полная синхронизация",
-            command=lambda: self.run_action(
-                "Полная синхронизация",
-                full_sync
-            ),
-            outline=True
-        )
-
-        self.google_auth_button = self._make_button(
-            card,
-            text="Войти в Google",
-            command=self.run_google_auth_action,
-            outline=True
-        )
-        self._style_sidebar_button(self.google_auth_button)
-        self.google_auth_button.grid(row=8, column=0, padx=20, pady=5, sticky="ew")
-        self.buttons.append(self.google_auth_button)
-
-        self._add_action_button(
-            card,
-            row=9,
-            text="Удалить календарь TPU",
-            command=self.confirm_delete_calendar,
-            danger=True
-        )
-
         spacer = ctk.CTkFrame(card, height=26, fg_color="transparent")
-        spacer.grid(row=10, column=0, sticky="ew")
-
-        clear_button = self._make_button(
-            card,
-            text="Очистить лог",
-            command=self.clear_log,
-            outline=True
-        )
-        self._style_sidebar_button(clear_button)
-        clear_button.grid(row=11, column=0, padx=20, pady=(4, 8), sticky="ew")
+        spacer.grid(row=6, column=0, sticky="ew")
 
         exit_button = self._make_button(
             card,
@@ -220,7 +174,7 @@ class DesktopApp(ctk.CTk):
             outline=True
         )
         self._style_sidebar_button(exit_button)
-        exit_button.grid(row=12, column=0, padx=20, pady=(0, 18), sticky="ew")
+        exit_button.grid(row=7, column=0, padx=20, pady=(0, 18), sticky="ew")
 
         footer = ctk.CTkLabel(
             card,
@@ -229,7 +183,7 @@ class DesktopApp(ctk.CTk):
             justify="left",
             font=ctk.CTkFont(size=12)
         )
-        footer.grid(row=13, column=0, padx=20, pady=(0, 16), sticky="w")
+        footer.grid(row=8, column=0, padx=20, pady=(0, 16), sticky="w")
 
         self.refresh_sidebar_info()
 
@@ -394,6 +348,7 @@ class DesktopApp(ctk.CTk):
         self._add_tab_button("log", "Журнал", 0)
         self._add_tab_button("subjects", "Предметы", 1)
         self._add_tab_button("settings", "Настройки", 2)
+        self._add_tab_button("extra", "Дополнительно", 3)
 
         nav_line = ctk.CTkFrame(
             self.content,
@@ -426,16 +381,23 @@ class DesktopApp(ctk.CTk):
             fg_color=APP_BG,
             corner_radius=0
         )
+        self.extra_tab = ctk.CTkFrame(
+            self.tab_container,
+            fg_color=APP_BG,
+            corner_radius=0
+        )
 
         self.tab_frames = {
             "log": self.log_tab,
             "subjects": self.subjects_tab,
-            "settings": self.settings_tab
+            "settings": self.settings_tab,
+            "extra": self.extra_tab
         }
 
         self._build_log_tab()
         self._build_subjects_tab()
         self._build_settings_tab()
+        self._build_extra_tab()
         self.reload_subjects()
         self.show_tab("log")
 
@@ -573,6 +535,7 @@ class DesktopApp(ctk.CTk):
         self.log_box = ctk.CTkTextbox(
             self.log_tab,
             wrap="word",
+            height=LOG_MIN_HEIGHT,
             fg_color=SURFACE,
             border_width=1,
             border_color=BORDER,
@@ -664,6 +627,70 @@ class DesktopApp(ctk.CTk):
         self.subjects_frame.grid(row=1, column=0, padx=12, pady=(0, 12), sticky="nsew")
         self.subjects_frame.grid_columnconfigure(0, weight=1)
 
+    def _build_extra_tab(self) -> None:
+        self.extra_tab.grid_columnconfigure(0, weight=1)
+
+        card = ctk.CTkFrame(
+            self.extra_tab,
+            fg_color=SURFACE,
+            border_width=1,
+            border_color=BORDER,
+            corner_radius=8
+        )
+        card.grid(row=0, column=0, sticky="ew", pady=(8, 0))
+        card.grid_columnconfigure((0, 1), weight=1, uniform="extra_actions")
+
+        heading = ctk.CTkLabel(
+            card,
+            text="Дополнительные действия",
+            text_color=TEXT,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            anchor="w"
+        )
+        heading.grid(row=0, column=0, columnspan=2, padx=20, pady=(20, 12), sticky="ew")
+
+        update_button = self._make_button(
+            card,
+            text="Обновить расписание",
+            command=lambda: self.run_action(
+                "Обновление расписания",
+                update_schedule
+            ),
+            outline=True
+        )
+        update_button.grid(row=1, column=0, padx=(20, 8), pady=6, sticky="ew")
+        self.buttons.append(update_button)
+
+        calendar_button = self._make_button(
+            card,
+            text="Синхронизировать календарь",
+            command=lambda: self.run_action(
+                "Синхронизация календаря",
+                sync_calendar
+            ),
+            outline=True
+        )
+        calendar_button.grid(row=1, column=1, padx=(8, 20), pady=6, sticky="ew")
+        self.buttons.append(calendar_button)
+
+        self.google_auth_button = self._make_button(
+            card,
+            text="Войти в Google",
+            command=self.run_google_auth_action,
+            outline=True
+        )
+        self.google_auth_button.grid(row=2, column=0, padx=(20, 8), pady=(6, 20), sticky="ew")
+        self.buttons.append(self.google_auth_button)
+
+        delete_button = self._make_button(
+            card,
+            text="Удалить календарь TPU",
+            command=self.confirm_delete_calendar,
+            danger=True
+        )
+        delete_button.grid(row=2, column=1, padx=(8, 20), pady=(6, 20), sticky="ew")
+        self.buttons.append(delete_button)
+
     def _build_settings_tab(self) -> None:
         self.settings_tab.grid_columnconfigure(0, weight=1)
         self.settings_tab.grid_rowconfigure(0, weight=1)
@@ -695,12 +722,12 @@ class DesktopApp(ctk.CTk):
             value=str(CONFIG["group_name"])
         )
 
-        self.year_entry = self._add_setting_entry(
+        self.study_year_value = self._add_setting_value(
             card,
             row=2,
             title="Учебный год",
-            description="Год начала учебного года",
-            value=str(CONFIG["study_year"])
+            description="Определяется автоматически",
+            value=str(get_current_study_year())
         )
 
         self.weeks_entry = self._add_setting_entry(
@@ -755,13 +782,42 @@ class DesktopApp(ctk.CTk):
 
         return entry
 
+    def _add_setting_value(
+        self,
+        parent,
+        row: int,
+        title: str,
+        description: str,
+        value: str
+    ) -> ctk.CTkLabel:
+        label = ctk.CTkLabel(
+            parent,
+            text=f"{title}\n{description}",
+            text_color=TEXT,
+            justify="left",
+            anchor="w"
+        )
+        label.grid(row=row, column=0, padx=24, pady=16, sticky="ew")
+
+        value_label = ctk.CTkLabel(
+            parent,
+            text=value,
+            fg_color="#f4f7fb",
+            text_color=MUTED,
+            height=38,
+            corner_radius=6,
+            anchor="w"
+        )
+        value_label.grid(row=row, column=1, padx=20, pady=16, sticky="ew")
+
+        return value_label
+
     def refresh_sidebar_info(self) -> None:
         group_name = CONFIG["group_name"] or "Не задана"
 
         try:
             current_week = get_current_study_week(
-                date.today(),
-                CONFIG["study_year"]
+                date.today()
             )
 
         except ValueError:
@@ -1103,12 +1159,11 @@ class DesktopApp(ctk.CTk):
 
     def save_settings(self) -> None:
         try:
-            study_year = int(self.year_entry.get().strip())
             weeks_ahead = int(self.weeks_entry.get().strip())
 
         except ValueError:
             self.status_label.configure(
-                text="Учебный год и количество недель должны быть числами"
+                text="Количество недель должно быть числом"
             )
             return
 
@@ -1130,7 +1185,6 @@ class DesktopApp(ctk.CTk):
         new_config = {
             **CONFIG,
             "group_name": group_name,
-            "study_year": study_year,
             "weeks_ahead": weeks_ahead,
             "calendar_name": calendar_name
         }
