@@ -546,7 +546,7 @@ class DesktopApp(ctk.CTk):
         )
         self.log_box.grid(row=2, column=0, sticky="nsew")
         self.log_box.insert("end", "Приложение запущено.\n")
-        self.log_box.configure(state="disabled")
+        self.configure_log_readonly()
 
     def _build_first_run_panel(self) -> None:
         self.first_run_panel = ctk.CTkFrame(
@@ -1377,16 +1377,53 @@ class DesktopApp(ctk.CTk):
     def write_log_threadsafe(self, message: str) -> None:
         self.after(0, lambda: self.write_log(message))
 
+    def configure_log_readonly(self) -> None:
+        self.log_box.bind("<KeyPress>", self.block_log_edit)
+        self.log_box.bind("<<Paste>>", self.block_log_edit)
+        self.log_box.bind("<<Cut>>", self.block_log_edit)
+        self.log_box.bind("<Control-v>", self.block_log_edit)
+        self.log_box.bind("<Control-x>", self.block_log_edit)
+        self.log_box.bind("<Control-a>", self.select_all_log)
+        self.log_box.bind("<Control-A>", self.select_all_log)
+
+    def block_log_edit(self, event=None):
+        allowed_keys = {
+            "Left",
+            "Right",
+            "Up",
+            "Down",
+            "Home",
+            "End",
+            "Prior",
+            "Next",
+            "Escape",
+            "Control_L",
+            "Control_R",
+            "Shift_L",
+            "Shift_R"
+        }
+
+        if event and event.keysym in allowed_keys:
+            return None
+
+        if event and event.state & 0x4 and event.keysym.lower() == "c":
+            return None
+
+        return "break"
+
+    def select_all_log(self, event=None):
+        self.log_box.tag_add("sel", "1.0", "end-1c")
+        self.log_box.mark_set("insert", "1.0")
+        self.log_box.see("insert")
+
+        return "break"
+
     def write_log(self, message: str) -> None:
-        self.log_box.configure(state="normal")
         self.log_box.insert("end", f"{message}\n")
         self.log_box.see("end")
-        self.log_box.configure(state="disabled")
 
     def clear_log(self) -> None:
-        self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
-        self.log_box.configure(state="disabled")
 
     def reload_subjects(self) -> None:
         try:
