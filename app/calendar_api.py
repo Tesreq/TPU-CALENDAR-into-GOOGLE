@@ -14,7 +14,8 @@ SCOPES = [
 
 
 def load_saved_credentials(
-    status_callback: StatusCallback | None = None
+    status_callback: StatusCallback | None = None,
+    emit_errors: bool = True
 ):
     if not TOKEN_FILE.exists():
         return None
@@ -25,14 +26,28 @@ def load_saved_credentials(
             SCOPES
         )
 
-    except (OSError, ValueError) as error:
-        emit(
-            "Google token.json повреждён или не подходит. "
-            "Нужна повторная авторизация.",
-            status_callback
-        )
+    except (OSError, ValueError):
+        if emit_errors:
+            emit(
+                "Google token.json повреждён или не подходит. "
+                "Нужна повторная авторизация.",
+                status_callback
+            )
+
         TOKEN_FILE.unlink(missing_ok=True)
         return None
+
+
+def has_saved_google_login() -> bool:
+    creds = load_saved_credentials(
+        emit_errors=False
+    )
+
+    return bool(
+        creds and (
+            creds.valid or creds.refresh_token
+        )
+    )
 
 
 def save_credentials(creds) -> None:

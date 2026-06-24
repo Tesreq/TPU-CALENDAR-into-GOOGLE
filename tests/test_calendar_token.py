@@ -22,6 +22,16 @@ class CalendarTokenTests(unittest.TestCase):
                 any("token.json повреждён" in message for message in messages)
             )
 
+    def test_has_saved_google_login_removes_invalid_token_silently(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            token_file = Path(temp_dir) / "token.json"
+            token_file.write_text("not json", encoding="utf-8")
+
+            with patch.object(calendar_api, "TOKEN_FILE", token_file):
+                self.assertFalse(calendar_api.has_saved_google_login())
+
+            self.assertFalse(token_file.exists())
+
     def test_load_saved_credentials_returns_none_when_token_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             token_file = Path(temp_dir) / "token.json"

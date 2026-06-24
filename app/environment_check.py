@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
+from .calendar_api import has_saved_google_login
 from .config import (
     CREDENTIALS_FILE,
     PARSED_SCHEDULE_FILE,
-    SUBJECTS_FILE,
-    TOKEN_FILE
+    SUBJECTS_FILE
 )
 
 
@@ -41,6 +41,21 @@ def check_playwright_chromium() -> EnvironmentStatus:
     )
 
 
+def check_google_token() -> EnvironmentStatus:
+    has_login = has_saved_google_login()
+
+    return EnvironmentStatus(
+        key="token",
+        title="Google token",
+        ok=has_login,
+        message=(
+            "Успешный вход в аккаунт Google"
+            if has_login
+            else "Вход в Google не выполнен"
+        )
+    )
+
+
 def check_environment(
     include_browser: bool = False
 ) -> list[EnvironmentStatus]:
@@ -55,16 +70,7 @@ def check_environment(
                 else "credentials.json не найден"
             )
         ),
-        EnvironmentStatus(
-            key="token",
-            title="Google token",
-            ok=TOKEN_FILE.exists(),
-            message=(
-                "Успешный вход в аккаунт Google"
-                if TOKEN_FILE.exists()
-                else "Вход в Google не выполнен"
-            )
-        ),
+        check_google_token(),
         EnvironmentStatus(
             key="schedule",
             title="Расписание",

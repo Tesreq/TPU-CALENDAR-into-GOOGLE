@@ -1,7 +1,0 @@
-services:
-  app:
-    build: .
-    container_name: uni_calendar_sync
-
-    volumes:
-      - ./app:/project/app

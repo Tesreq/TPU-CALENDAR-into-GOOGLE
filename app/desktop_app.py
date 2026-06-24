@@ -1,4 +1,4 @@
-﻿import threading
+import threading
 import traceback
 from tkinter import filedialog
 from collections.abc import Callable
@@ -25,11 +25,11 @@ from .app_actions import (
     sync_calendar,
     update_schedule
 )
+from .calendar_api import has_saved_google_login
 from .config import (
     AVATAR_FILE,
     CONFIG,
     CREDENTIALS_FILE,
-    TOKEN_FILE,
     save_config
 )
 from .environment_check import check_environment
@@ -946,12 +946,17 @@ class DesktopApp(ctk.CTk):
             text_color=GREEN if token.ok else RED
         )
         self.refresh_google_auth_button(token.ok)
-        self.refresh_first_run_panel()
+        self.refresh_first_run_panel(token.ok)
 
-    def refresh_first_run_panel(self) -> None:
+    def refresh_first_run_panel(
+        self,
+        has_google_login: bool | None = None
+    ) -> None:
         has_group = bool(CONFIG["group_name"].strip())
         has_credentials = CREDENTIALS_FILE.exists()
-        has_google_login = TOKEN_FILE.exists()
+
+        if has_google_login is None:
+            has_google_login = has_saved_google_login()
 
         if has_group and has_credentials and has_google_login:
             self.first_run_panel.grid_remove()
@@ -1031,7 +1036,7 @@ class DesktopApp(ctk.CTk):
         self.status_label.configure(text="credentials.json сохранён")
 
     def run_google_auth_action(self) -> None:
-        if TOKEN_FILE.exists():
+        if has_saved_google_login():
             self.run_action(
                 "Выход из Google",
                 logout_google_account
@@ -1050,7 +1055,7 @@ class DesktopApp(ctk.CTk):
         )
 
     def ensure_google_authorized(self) -> bool:
-        if TOKEN_FILE.exists():
+        if has_saved_google_login():
             return True
 
         message = (
@@ -1080,7 +1085,7 @@ class DesktopApp(ctk.CTk):
         ]
 
         if step >= len(pulse_colors):
-            self.refresh_google_auth_button(TOKEN_FILE.exists())
+            self.refresh_google_auth_button(has_saved_google_login())
             return
 
         self.google_auth_button.configure(

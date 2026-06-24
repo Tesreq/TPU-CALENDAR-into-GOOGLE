@@ -82,6 +82,10 @@ def find_calendar_by_name(service, calendar_name: str) -> dict | None:
     return matches[0]
 
 
+def calendar_matches_name(calendar: dict, calendar_name: str) -> bool:
+    return calendar.get("summary") == calendar_name
+
+
 def get_or_create_calendar(
     service=None,
     status_callback: StatusCallback | None = None
@@ -101,11 +105,24 @@ def get_or_create_calendar(
     )
 
     if saved_calendar:
+        saved_summary = saved_calendar.get("summary", "")
+
+        if calendar_matches_name(saved_calendar, calendar_name):
+            emit(
+                f"Найден календарь: {saved_summary or calendar_name}",
+                status_callback
+            )
+            return saved_calendar_id
+
+        saved_calendar_label = saved_summary or saved_calendar_id
+        clear_calendar_id()
+        saved_calendar_id = ""
         emit(
-            f"Найден календарь: {saved_calendar.get('summary', calendar_name)}",
+            "Сохранённый Google calendar_id относится к календарю "
+            f'"{saved_calendar_label}", а в настройках указан '
+            f'"{calendar_name}". Ищу календарь заново.',
             status_callback
         )
-        return saved_calendar_id
 
     if saved_calendar_id:
         clear_calendar_id()

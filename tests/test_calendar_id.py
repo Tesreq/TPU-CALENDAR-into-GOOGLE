@@ -88,13 +88,13 @@ class CalendarIdTests(unittest.TestCase):
         self.config.update(config)
         self.saved_configs.append(dict(config))
 
-    def test_uses_saved_calendar_id_before_name_search(self) -> None:
+    def test_uses_matching_saved_calendar_id_before_name_search(self) -> None:
         self.config["calendar_id"] = "saved-id"
         service = FakeService(
             calendars={
                 "saved-id": {
                     "id": "saved-id",
-                    "summary": "Renamed TPU Schedule"
+                    "summary": "TPU Schedule"
                 }
             }
         )
@@ -108,6 +108,34 @@ class CalendarIdTests(unittest.TestCase):
         self.assertEqual(service.get_calls, ["saved-id"])
         self.assertEqual(service.calendar_list_calls, [])
         self.assertEqual(service.insert_calls, [])
+
+    def test_ignores_saved_calendar_id_when_calendar_name_changed(self) -> None:
+        self.config["calendar_id"] = "saved-id"
+        messages = []
+        service = FakeService(
+            calendars={
+                "saved-id": {
+                    "id": "saved-id",
+                    "summary": "Old TPU Schedule"
+                }
+            },
+            calendar_list_items=[
+                {"id": "new-id", "summary": "TPU Schedule"}
+            ]
+        )
+
+        calendar_id = calendar_manager.get_or_create_calendar(
+            service=service,
+            status_callback=messages.append
+        )
+
+        self.assertEqual(calendar_id, "new-id")
+        self.assertEqual(self.config["calendar_id"], "new-id")
+        self.assertEqual(service.get_calls, ["saved-id"])
+        self.assertEqual(service.insert_calls, [])
+        self.assertTrue(
+            any("calendar_id" in message for message in messages)
+        )
 
     def test_saves_id_when_existing_calendar_is_found_by_name(self) -> None:
         service = FakeService(
