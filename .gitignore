@@ -11,7 +11,7 @@ logs/
 build/
 dist/
 *.spec
-!tpu_calendar_sync.spec
+!packaging/tpu_calendar_sync.spec
 
 data/
 app/config.json

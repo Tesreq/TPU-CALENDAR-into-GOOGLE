@@ -26,11 +26,16 @@ app/
   default_config.json    безличный конфиг по умолчанию
   assets/              иконки приложения
 
-desktop.py             запуск desktop-приложения
-main.py                запуск консольного меню
-run_desktop.bat        быстрый запуск desktop-приложения
-install_shortcut.bat   создание ярлыка на рабочем столе
-build_exe.bat          сборка exe через PyInstaller
+scripts/
+  desktop.py           запуск desktop-приложения
+  main.py              запуск консольного меню
+  install_shortcut.*   создание ярлыка на рабочем столе
+  build_exe.bat        сборка exe через PyInstaller
+
+packaging/
+  tpu_calendar_sync.spec  настройки PyInstaller
+
+run_desktop.bat        быстрый запуск desktop-приложения из корня проекта
 ```
 
 ## Установка для разработки
@@ -63,7 +68,7 @@ data/token.json
 Desktop-приложение:
 
 ```powershell
-.\.venv\Scripts\python.exe desktop.py
+.\.venv\Scripts\python.exe scripts\desktop.py
 ```
 
 Или двойным кликом:
@@ -75,7 +80,7 @@ run_desktop.bat
 Консольное меню:
 
 ```powershell
-.\.venv\Scripts\python.exe main.py
+.\.venv\Scripts\python.exe scripts\main.py
 ```
 
 ## Ярлык на рабочем столе
@@ -83,7 +88,7 @@ run_desktop.bat
 Запустите:
 
 ```text
-install_shortcut.bat
+scripts\install_shortcut.bat
 ```
 
 Скрипт создаст ярлык `TPU Calendar Sync` на рабочем столе с иконкой приложения.
@@ -99,7 +104,7 @@ install_shortcut.bat
 Соберите приложение:
 
 ```text
-build_exe.bat
+scripts\build_exe.bat
 ```
 
 Готовый файл появится в:

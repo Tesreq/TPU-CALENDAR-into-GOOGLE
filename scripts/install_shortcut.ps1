@@ -1,10 +1,11 @@
 $ErrorActionPreference = "Stop"
 
-$projectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectDir = Split-Path -Parent $scriptsDir
 $desktopPath = [Environment]::GetFolderPath("Desktop")
 $shortcutPath = Join-Path $desktopPath "TPU Calendar Sync.lnk"
 $iconPath = Join-Path $projectDir "app\assets\avatar.ico"
-$desktopScript = Join-Path $projectDir "desktop.py"
+$desktopScript = Join-Path $projectDir "scripts\desktop.py"
 $pythonwPath = Join-Path $projectDir ".venv\Scripts\pythonw.exe"
 $pythonPath = Join-Path $projectDir ".venv\Scripts\python.exe"
 $batPath = Join-Path $projectDir "run_desktop.bat"
