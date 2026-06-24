@@ -1,7 +1,5 @@
 from dataclasses import dataclass
 
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import sync_playwright
 
 from .calendar_api import has_saved_google_login
 from .config import (
@@ -19,28 +17,6 @@ class EnvironmentStatus:
     message: str
 
 
-def check_playwright_chromium() -> EnvironmentStatus:
-    try:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            browser.close()
-
-    except PlaywrightError:
-        return EnvironmentStatus(
-            key="playwright",
-            title="Playwright",
-            ok=False,
-            message="Chromium не установлен"
-        )
-
-    return EnvironmentStatus(
-        key="playwright",
-        title="Playwright",
-        ok=True,
-        message="Chromium доступен"
-    )
-
-
 def check_google_token() -> EnvironmentStatus:
     has_login = has_saved_google_login()
 
@@ -56,9 +32,7 @@ def check_google_token() -> EnvironmentStatus:
     )
 
 
-def check_environment(
-    include_browser: bool = False
-) -> list[EnvironmentStatus]:
+def check_environment() -> list[EnvironmentStatus]:
     statuses = [
         EnvironmentStatus(
             key="credentials",
@@ -92,8 +66,5 @@ def check_environment(
             )
         )
     ]
-
-    if include_browser:
-        statuses.append(check_playwright_chromium())
 
     return statuses

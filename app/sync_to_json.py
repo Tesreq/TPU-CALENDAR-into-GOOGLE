@@ -1,4 +1,4 @@
-﻿import hashlib
+import hashlib
 import json
 from datetime import datetime, timedelta
 
@@ -10,7 +10,7 @@ from .parser import (
     get_current_study_year,
     get_study_year_start,
     build_schedule_url,
-    fetch_rendered_html_many,
+    fetch_schedule_html_many,
     parse_schedule
 )
 
@@ -161,7 +161,7 @@ def update_schedule(
 
         week_urls[week] = url
 
-    html_by_url = fetch_rendered_html_many(
+    html_by_url = fetch_schedule_html_many(
         list(week_urls.values()),
         status_callback=status_callback
     )

@@ -1,4 +1,4 @@
-﻿.venv/
+.venv/
 .idea/
 __pycache__/
 *.py[cod]
@@ -15,3 +15,10 @@ dist/
 
 data/
 app/config.json
+# Google OAuth secrets
+credentials.json
+token.json
+client_secret_*.json
+*.apps.googleusercontent.com.json
+service_account*.json
+*service-account*.json

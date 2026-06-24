@@ -1,9 +1,10 @@
 import re
+import time
 from datetime import date, datetime
 from urllib.parse import urlparse, parse_qs
 
 from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
+import requests
 
 from .app_logging import StatusCallback, emit
 from .config import CONFIG
@@ -12,6 +13,17 @@ from .group_search import resolve_group_id
 
 class ScheduleParseError(Exception):
     pass
+
+
+SCHEDULE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 "
+        "(Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 "
+        "(KHTML, like Gecko) "
+        "Chrome/120.0 Safari/537.36"
+    )
+}
 
 
 def get_current_study_year(today: date | None = None) -> int:
@@ -48,49 +60,81 @@ def build_schedule_url(group_id: str, study_year: int, week: int) -> str:
     return f"https://ro-rasp.tpu.ru/gruppa_{group_id}/{study_year}/{week}/view.html"
 
 
-def fetch_rendered_html(url: str) -> str:
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+def html_has_schedule_table(html: str) -> bool:
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
 
-        page = browser.new_page()
+    return soup.select_one("#raspisanie-table") is not None
 
-        page.goto(
-            url,
-            wait_until="networkidle",
-            timeout=60000
+
+def fetch_static_html(
+    url: str,
+    status_callback: StatusCallback | None = None
+) -> str:
+    last_error = None
+
+    for attempt in range(3):
+        try:
+            response = requests.get(
+                url,
+                headers=SCHEDULE_HEADERS,
+                timeout=30
+            )
+            response.raise_for_status()
+
+            if not response.encoding:
+                response.encoding = "utf-8"
+
+            return response.text
+
+        except requests.RequestException as error:
+            last_error = error
+            emit(
+                "Ошибка загрузки расписания "
+                f"(попытка {attempt + 1}/3): {error}",
+                status_callback
+            )
+
+            if attempt < 2:
+                time.sleep(2)
+
+    raise ScheduleParseError(
+        f"Не удалось загрузить страницу расписания: {last_error}"
+    ) from last_error
+
+
+def fetch_schedule_html(
+    url: str,
+    status_callback: StatusCallback | None = None
+) -> str:
+    emit(f"Загружаю расписание: {url}", status_callback)
+    html = fetch_static_html(
+        url,
+        status_callback=status_callback
+    )
+
+    if not html_has_schedule_table(html):
+        raise ScheduleParseError(
+            "В ответе сайта нет таблицы расписания #raspisanie-table. "
+            "Возможно, сайт ТПУ изменил разметку или вернул страницу ошибки."
         )
-
-        html = page.content()
-
-        browser.close()
 
     return html
 
 
-def fetch_rendered_html_many(
+def fetch_schedule_html_many(
     urls: list[str],
     status_callback: StatusCallback | None = None
 ) -> dict[str, str]:
-    result = {}
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-
-        for url in urls:
-            emit(f"Загружаю: {url}", status_callback)
-
-            page.goto(
-                url,
-                wait_until="networkidle",
-                timeout=60000
-            )
-
-            result[url] = page.content()
-
-        browser.close()
-
-    return result
+    return {
+        url: fetch_schedule_html(
+            url,
+            status_callback=status_callback
+        )
+        for url in urls
+    }
 
 
 def get_schedule_table(soup: BeautifulSoup):
@@ -437,7 +481,7 @@ def main():
 
     print("URL:", url)
 
-    html = fetch_rendered_html(url)
+    html = fetch_schedule_html(url)
 
 
 

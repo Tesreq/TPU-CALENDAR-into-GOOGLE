@@ -594,7 +594,7 @@ class DesktopApp(ctk.CTk):
             text="Войти в Google",
             command=lambda: (
                 self.show_tab("extra"),
-                self.flash_google_auth_button()
+                self.run_google_auth_action()
             ),
             outline=True
         )
@@ -745,14 +745,14 @@ class DesktopApp(ctk.CTk):
         self.google_auth_button.grid(row=2, column=0, padx=(20, 8), pady=6, sticky="ew")
         self.buttons.append(self.google_auth_button)
 
-        credentials_button = self._make_button(
+        self.credentials_button = self._make_button(
             card,
             text="Выбрать credentials.json",
             command=self.choose_google_credentials,
             outline=True
         )
-        credentials_button.grid(row=2, column=1, padx=(8, 20), pady=6, sticky="ew")
-        self.buttons.append(credentials_button)
+        self.credentials_button.grid(row=2, column=1, padx=(8, 20), pady=6, sticky="ew")
+        self.buttons.append(self.credentials_button)
 
         delete_button = self._make_button(
             card,
@@ -1044,19 +1044,61 @@ class DesktopApp(ctk.CTk):
             return
 
         if not CREDENTIALS_FILE.exists():
-            self.choose_google_credentials()
-
-            if not CREDENTIALS_FILE.exists():
-                return
+            self.show_missing_google_credentials_message()
+            return
 
         self.run_action(
             "Вход в Google",
             login_google_account
         )
 
+    def show_missing_google_credentials_message(self) -> None:
+        message = (
+            "Чтобы открыть авторизацию Google, сначала добавьте "
+            "credentials.json во вкладке «Дополнительно»."
+        )
+        self.status_label.configure(text=message)
+        self.write_log(message)
+        self.refresh_status_panel()
+        self.show_tab("extra")
+        self.flash_credentials_button()
+
+    def flash_credentials_button(
+        self,
+        step: int = 0
+    ) -> None:
+        pulse_colors = [
+            SURFACE,
+            "#fff7e6",
+            "#ffe8b3",
+            "#ffd166",
+            "#ffe8b3",
+            "#fff7e6",
+            SURFACE
+        ]
+
+        if step >= len(pulse_colors):
+            self._style_sidebar_button(self.credentials_button)
+            return
+
+        self.credentials_button.configure(
+            fg_color=pulse_colors[step],
+            border_color=WARNING,
+            text_color=TEXT
+        )
+
+        self.after(
+            140,
+            lambda: self.flash_credentials_button(step + 1)
+        )
+
     def ensure_google_authorized(self) -> bool:
         if has_saved_google_login():
             return True
+
+        if not CREDENTIALS_FILE.exists():
+            self.show_missing_google_credentials_message()
+            return False
 
         message = (
             "Сначала выполните вход в аккаунт Google "

@@ -40,11 +40,7 @@ cd path\to\TPU-Calendar-Sync
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Если Playwright Chromium ещё не установлен:
-
-```powershell
-.\.venv\Scripts\python.exe -m playwright install chromium
-```
+Расписание загружается обычным HTTP-запросом без отдельного браузера.
 
 ## Google Calendar
 
