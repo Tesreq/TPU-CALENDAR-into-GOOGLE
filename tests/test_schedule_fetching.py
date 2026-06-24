@@ -21,23 +21,34 @@ class FakeResponse:
         return None
 
 
+class FakeSession:
+    def __init__(self, response: FakeResponse):
+        self.response = response
+        self.get_calls = []
+
+    def get(self, *args, **kwargs):
+        self.get_calls.append((args, kwargs))
+        return self.response
+
+
 class ScheduleFetchingTests(unittest.TestCase):
     def test_fetch_schedule_html_uses_static_html_when_table_exists(self) -> None:
         html = load_fixture("basic_week.html")
         messages = []
+        session = FakeSession(FakeResponse(html))
 
         with patch.object(
             parser.requests,
-            "get",
-            return_value=FakeResponse(html)
-        ) as get_mock:
+            "Session",
+            return_value=session
+        ):
             result = parser.fetch_schedule_html(
                 "https://example.test/schedule.html",
                 status_callback=messages.append
             )
 
         self.assertEqual(result, html)
-        get_mock.assert_called_once()
+        self.assertEqual(len(session.get_calls), 1)
         self.assertTrue(
             any("Загружаю расписание" in message for message in messages)
         )
@@ -45,11 +56,12 @@ class ScheduleFetchingTests(unittest.TestCase):
     def test_fetch_schedule_html_raises_when_table_is_missing(self) -> None:
         html = load_fixture("missing_table.html")
         messages = []
+        session = FakeSession(FakeResponse(html))
 
         with patch.object(
             parser.requests,
-            "get",
-            return_value=FakeResponse(html)
+            "Session",
+            return_value=session
         ):
             with self.assertRaises(parser.ScheduleParseError):
                 parser.fetch_schedule_html(

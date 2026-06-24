@@ -1,7 +1,8 @@
 import re
 import time
+import base64
 from datetime import date, datetime
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urljoin, urlparse, parse_qs
 
 from bs4 import BeautifulSoup
 import requests
@@ -71,13 +72,15 @@ def html_has_schedule_table(html: str) -> bool:
 
 def fetch_static_html(
     url: str,
-    status_callback: StatusCallback | None = None
+    status_callback: StatusCallback | None = None,
+    session: requests.Session | None = None
 ) -> str:
     last_error = None
+    client = session or requests
 
     for attempt in range(3):
         try:
-            response = requests.get(
+            response = client.get(
                 url,
                 headers=SCHEDULE_HEADERS,
                 timeout=30
@@ -110,9 +113,11 @@ def fetch_schedule_html(
     status_callback: StatusCallback | None = None
 ) -> str:
     emit(f"Загружаю расписание: {url}", status_callback)
+    session = requests.Session()
     html = fetch_static_html(
         url,
-        status_callback=status_callback
+        status_callback=status_callback,
+        session=session
     )
 
     if not html_has_schedule_table(html):
@@ -121,7 +126,175 @@ def fetch_schedule_html(
             "Возможно, сайт ТПУ изменил разметку или вернул страницу ошибки."
         )
 
-    return html
+    return decrypt_schedule_html(
+        html,
+        url,
+        status_callback=status_callback,
+        session=session
+    )
+
+
+def xor_decrypt_tpu_value(
+    encrypted_value: str,
+    crypt_key: str
+) -> str:
+    decoded_value = base64.b64decode(
+        encrypted_value
+    ).decode("utf-8")
+
+    return "".join(
+        chr(
+            ord(char)
+            ^ ord(crypt_key[index % len(crypt_key)])
+        )
+        for index, char in enumerate(decoded_value)
+    )
+
+
+def get_encryption_api_url(
+    html: str,
+    page_url: str
+) -> str:
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
+    body = soup.select_one("body[data-absolute_url]")
+    base_url = (
+        body.get("data-absolute_url")
+        if body
+        else page_url
+    )
+
+    return urljoin(
+        base_url,
+        "/data/encrypt/decrypt.html"
+    )
+
+
+def fetch_decryption_key(
+    html: str,
+    page_url: str,
+    status_callback: StatusCallback | None = None,
+    session: requests.Session | None = None
+) -> str:
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
+    meta = soup.select_one("meta[name='encrypt']")
+
+    if meta is None or not meta.get("content"):
+        raise ScheduleParseError(
+            "В расписании есть зашифрованные названия, "
+            "но не найден ключ meta[name=encrypt]."
+        )
+
+    csrf_meta = soup.select_one("meta[name='csrf-token']")
+    headers = {
+        **SCHEDULE_HEADERS,
+        "Referer": page_url,
+        "X-Requested-With": "XMLHttpRequest"
+    }
+
+    if csrf_meta and csrf_meta.get("content"):
+        headers["X-CSRF-Token"] = csrf_meta["content"]
+
+    api_url = get_encryption_api_url(
+        html,
+        page_url
+    )
+
+    emit(
+        "Расшифровываю названия предметов",
+        status_callback
+    )
+
+    client = session or requests
+
+    try:
+        response = client.post(
+            api_url,
+            data={
+                "content": meta["content"],
+                "token": "token"
+            },
+            headers=headers,
+            timeout=30
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    except (requests.RequestException, ValueError) as error:
+        raise ScheduleParseError(
+            f"Не удалось получить ключ расшифровки расписания: {error}"
+        ) from error
+
+    crypt_key = data.get("content")
+
+    if not crypt_key:
+        raise ScheduleParseError(
+            "Сайт ТПУ не вернул ключ расшифровки расписания."
+        )
+
+    return crypt_key
+
+
+def decrypt_schedule_html(
+    html: str,
+    page_url: str,
+    status_callback: StatusCallback | None = None,
+    session: requests.Session | None = None
+) -> str:
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
+    encrypted_spans = soup.select("span.encrypt[data-encrypt]")
+
+    if not encrypted_spans:
+        return html
+
+    crypt_key = fetch_decryption_key(
+        html,
+        page_url,
+        status_callback=status_callback,
+        session=session
+    )
+
+    for span in encrypted_spans:
+        try:
+            span.string = xor_decrypt_tpu_value(
+                span["data-encrypt"],
+                crypt_key
+            )
+
+            encrypted_title = span.get("data-title")
+
+            if encrypted_title:
+                span["title"] = xor_decrypt_tpu_value(
+                    encrypted_title,
+                    crypt_key
+                )
+
+            classes = [
+                class_name
+                for class_name in span.get("class", [])
+                if class_name != "encrypt"
+            ]
+
+            if classes:
+                span["class"] = classes
+
+            elif span.has_attr("class"):
+                del span["class"]
+
+        except (ValueError, UnicodeDecodeError) as error:
+            raise ScheduleParseError(
+                "Не удалось расшифровать название предмета."
+            ) from error
+
+    return str(soup)
 
 
 def fetch_schedule_html_many(

@@ -1,6 +1,9 @@
 ﻿# -*- mode: python ; coding: utf-8 -*-
 
 
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
+
 a = Analysis(
     ["desktop.py"],
     pathex=[],
@@ -8,8 +11,9 @@ a = Analysis(
     datas=[
         ("app/default_config.json", "app"),
         ("app/assets", "app/assets"),
+        *collect_data_files("tzdata"),
     ],
-    hiddenimports=[],
+    hiddenimports=collect_submodules("tzdata"),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

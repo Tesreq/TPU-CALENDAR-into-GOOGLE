@@ -63,6 +63,13 @@ class DesktopApp(ctk.CTk):
         self.minsize(APP_MIN_WIDTH, APP_MIN_HEIGHT)
         self.configure(fg_color=APP_BG)
 
+        icon_file = AVATAR_FILE.with_suffix(".ico")
+        if icon_file.exists():
+            self.after(
+                200,
+                lambda: self.iconbitmap(str(icon_file))
+            )
+
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
 
@@ -91,7 +98,7 @@ class DesktopApp(ctk.CTk):
         )
         self.content.grid(row=0, column=1, sticky="nsew")
         self.content.grid_columnconfigure(0, weight=1)
-        self.content.grid_rowconfigure(4, weight=1)
+        self.content.grid_rowconfigure(5, weight=1)
 
         self._build_sidebar()
         self._build_content()
@@ -334,11 +341,47 @@ class DesktopApp(ctk.CTk):
         )
         self.status_label.grid(row=1, column=0, padx=26, pady=(0, 4), sticky="ew")
 
+        self.busy_panel = ctk.CTkFrame(
+            self.content,
+            fg_color="#eef6ff",
+            border_width=1,
+            border_color="#b7d4ff",
+            corner_radius=8
+        )
+        self.busy_panel.grid(row=2, column=0, padx=24, pady=(6, 0), sticky="ew")
+        self.busy_panel.grid_columnconfigure(0, weight=1)
+        self.busy_panel.grid_remove()
+
+        self.busy_title = ctk.CTkLabel(
+            self.busy_panel,
+            text="",
+            text_color=TEXT,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            anchor="w"
+        )
+        self.busy_title.grid(row=0, column=0, padx=18, pady=(12, 2), sticky="ew")
+
+        self.busy_subtitle = ctk.CTkLabel(
+            self.busy_panel,
+            text="Окно может не отвечать на кнопки, пока задача выполняется.",
+            text_color=MUTED,
+            anchor="w"
+        )
+        self.busy_subtitle.grid(row=1, column=0, padx=18, pady=(0, 10), sticky="ew")
+
+        self.busy_progress = ctk.CTkProgressBar(
+            self.busy_panel,
+            height=8,
+            mode="indeterminate",
+            progress_color=BLUE
+        )
+        self.busy_progress.grid(row=2, column=0, padx=18, pady=(0, 14), sticky="ew")
+
         self.tab_nav = ctk.CTkFrame(
             self.content,
             fg_color=APP_BG
         )
-        self.tab_nav.grid(row=2, column=0, padx=24, pady=(12, 0), sticky="ew")
+        self.tab_nav.grid(row=3, column=0, padx=24, pady=(12, 0), sticky="ew")
         self.tab_nav.grid_columnconfigure(4, weight=1)
 
         self.tab_buttons: dict[str, ctk.CTkButton] = {}
@@ -354,14 +397,14 @@ class DesktopApp(ctk.CTk):
             height=1,
             fg_color=BORDER
         )
-        nav_line.grid(row=3, column=0, padx=24, pady=(0, 14), sticky="ew")
+        nav_line.grid(row=4, column=0, padx=24, pady=(0, 14), sticky="ew")
 
         self.tab_container = ctk.CTkFrame(
             self.content,
             fg_color=APP_BG,
             corner_radius=0
         )
-        self.tab_container.grid(row=4, column=0, padx=24, pady=(0, 22), sticky="nsew")
+        self.tab_container.grid(row=5, column=0, padx=24, pady=(0, 22), sticky="nsew")
         self.tab_container.grid_columnconfigure(0, weight=1)
         self.tab_container.grid_rowconfigure(0, weight=1)
 
@@ -1250,9 +1293,9 @@ class DesktopApp(ctk.CTk):
         self.run_action("Удаление календаря", delete_calendar)
 
     def run_action(self, title: str, action: Action) -> None:
-        self.set_busy(True)
         self.write_log(f"\n{title}")
         self.status_label.configure(text=f"Выполняется: {title}")
+        self.set_busy(True, title)
 
         thread = threading.Thread(
             target=self._run_worker,
@@ -1311,9 +1354,10 @@ class DesktopApp(ctk.CTk):
         self.write_log(f"Причина: {reason}")
         self.write_log(error_text)
         self.status_label.configure(text="Ошибка выполнения")
+        self.show_error_panel(title, reason)
         if title == "Сохранение группы":
             self.set_group_check_status(reason, state="error")
-        self.set_busy(False)
+        self.set_busy(False, keep_panel=True)
 
     def format_error_reason(self, error_line: str) -> str:
         if ": " in error_line:
@@ -1619,11 +1663,61 @@ class DesktopApp(ctk.CTk):
         self.status_label.configure(text="Настройки сохранены")
         self.write_log("config.json сохранён.")
 
-    def set_busy(self, busy: bool) -> None:
+    def show_busy_panel(self, title: str) -> None:
+        self.busy_panel.configure(
+            fg_color="#eef6ff",
+            border_color="#b7d4ff"
+        )
+        self.busy_title.configure(
+            text=f"Выполняется: {title}",
+            text_color=TEXT
+        )
+        self.busy_subtitle.configure(
+            text="Операция идёт в фоне. Кнопки временно заблокированы.",
+            text_color=MUTED
+        )
+        self.busy_panel.grid()
+        self.busy_progress.grid()
+        self.busy_progress.start()
+
+    def hide_busy_panel(self) -> None:
+        self.busy_progress.stop()
+        self.busy_panel.grid_remove()
+
+    def show_error_panel(self, title: str, reason: str) -> None:
+        self.busy_progress.stop()
+        self.busy_progress.grid_remove()
+        self.busy_panel.configure(
+            fg_color="#fff8f8",
+            border_color="#ffb3b3"
+        )
+        self.busy_title.configure(
+            text=f"{title}: ошибка",
+            text_color=RED
+        )
+        self.busy_subtitle.configure(
+            text=reason,
+            text_color=TEXT
+        )
+        self.busy_panel.grid()
+
+    def set_busy(
+        self,
+        busy: bool,
+        title: str = "",
+        keep_panel: bool = False
+    ) -> None:
         state = "disabled" if busy else "normal"
 
         for button in self.buttons:
             button.configure(state=state)
+
+        if busy:
+            self.show_busy_panel(title)
+            return
+
+        if not keep_panel:
+            self.hide_busy_panel()
 
         if not busy:
             for button in self.buttons:
